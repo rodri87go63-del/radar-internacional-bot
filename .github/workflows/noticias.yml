@@ -10,12 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      
       - name: Instalar Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.10' 
+      
+      # AQUÍ ESTÁ EL TRUCO: Force update (-U)
       - name: Instalar librerías
         run: pip install -U feedparser google-generativeai google-auth google-api-python-client
+
       - name: Ejecutar Robot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
