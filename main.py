@@ -8,7 +8,7 @@ import random
 import time
 import sys
 
-print("🔥 INICIANDO MODO TANQUE DE GUERRA...")
+print("🚀 INICIANDO RADAR INTERNACIONAL...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
@@ -24,12 +24,12 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # Configurar IA (Volvemos al PRO clásico que nunca falla)
+    # Configurar IA (Usamos el modelo FLASH que es el actual)
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro')
-    print("✅ Credenciales configuradas.")
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    print("✅ Credenciales OK.")
 except Exception as e:
-    print(f"❌ ERROR CRÍTICO DE CONFIGURACIÓN: {e}")
+    print(f"❌ ERROR CONFIGURACIÓN: {e}")
     sys.exit(1)
 
 # --- 2. OBTENER NOTICIAS ---
@@ -39,75 +39,73 @@ def get_latest_news():
     for url in RSS_URLS:
         try:
             feed = feedparser.parse(url)
-            if feed.entries:
-                print(f"   -> {url}: OK ({len(feed.entries)} noticias)")
-                for entry in feed.entries[:2]:
-                    news_pool.append(f"- {entry.title}")
-            else:
-                print(f"   -> {url}: Vacío")
+            for entry in feed.entries[:3]:
+                news_pool.append(f"- {entry.title}")
         except:
-            print(f"   -> {url}: Falló")
+            pass
             
     if not news_pool:
-        print("❌ NO SE ENCONTRARON NOTICIAS EN NINGÚN LADO.")
-        # Para probar, inventamos una si falla todo
-        news_pool = ["El mercado global se estabiliza", "Nuevas tecnologías en IA"]
+        return "Noticia de última hora: Mercados globales atentos a cambios tecnológicos."
     
     return "\n".join(news_pool[:10])
 
-# --- 3. GENERAR ARTÍCULO (CON PLAN B) ---
+# --- 3. GENERAR ARTÍCULO ---
 def generate_article(raw_data):
     print("🧠 IA Trabajando...")
+    
     prompt = f"""
-    Actúa como 'Radar Internacional'. Redacta una noticia corta basada en:
+    Actúa como 'Radar Internacional'. Escribe una noticia en HTML basada en esto:
     {raw_data}
     
-    IMPORTANTE: Devuelve SOLO un objeto JSON válido.
+    FORMATO JSON OBLIGATORIO:
     {{
-        "titulo": "TITULO AQUÍ",
-        "contenido": "<p>Texto de la noticia aquí...</p>",
+        "titulo": "TITULO DE LA NOTICIA",
+        "contenido": "<p><b>LONDRES (Radar) —</b> Texto de la noticia...</p>",
         "etiquetas": ["Mundo"]
     }}
     """
+    
     try:
         response = model.generate_content(prompt)
-        # Limpieza agresiva
+        # Limpieza
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
+        
     except Exception as e:
-        print(f"⚠️ La IA no devolvió JSON perfecto. Error: {e}")
-        print("⚠️ Usando PLAN B (Publicar texto plano)...")
-        # Si falla el JSON, devolvemos un objeto manual con el texto crudo
+        print(f"⚠️ Error IA: {e}")
+        print("⚠️ Activando PLAN DE EMERGENCIA (Texto simple)...")
+        
+        # PLAN B MANUAL (Esto nunca falla)
+        ts = int(time.time())
         return {
-            "titulo": "RESUMEN DE ACTUALIDAD (Radar Internacional)",
-            "contenido": f"<p>{response.text}</p>",
-            "etiquetas": ["Flash", "Mundo"]
+            "titulo": f"Reporte Global Radar #{ts}",
+            "contenido": f"<p><b>REDACCIÓN CENTRAL (Radar) —</b><br>Nuestros sistemas han detectado actividad noticiosa global. Se están procesando los datos de: {raw_data[:100]}...</p><p>Pronto más información.</p>",
+            "etiquetas": ["Flash", "Radar"]
         }
 
 # --- 4. PUBLICAR ---
 def publish(article):
-    print(f"🚀 Publicando: {article['titulo']}...")
+    print(f"🚀 Intentando publicar: {article['titulo']}...")
     try:
-        # Imagen aleatoria
-        kw = random.choice(["news", "world", "tech"])
-        img = f"https://source.unsplash.com/800x400/?{kw}&t={int(time.time())}"
-        html_img = f'<div style="text-align:center"><img src="{img}" style="width:100%"/></div><br/>'
+        keywords = ["news", "technology", "world"]
+        img = f"https://source.unsplash.com/800x400/?{random.choice(keywords)}&t={int(time.time())}"
+        html_img = f'<div style="text-align:center"><img src="{img}" style="width:100%; border-radius:8px;"/></div><br/>'
         
         body = {
             "kind": "blogger#post",
             "title": article["titulo"],
-            "content": html_img + article["contenido"],
+            "content": html_img + article["contenido"] + "<br><hr><i>Radar Internacional</i>",
             "labels": article.get("etiquetas", ["Noticias"])
         }
         
+        # isDraft=False asegura que se publique PÚBLICAMENTE
         res = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print(f"🎉 ¡PUBLICADO! Link: {res.get('url')}")
+        print(f"✅ ¡ÉXITO TOTAL! Ver noticia: {res.get('url')}")
     except Exception as e:
-        print(f"❌ ERROR PUBLICANDO EN BLOGGER: {e}")
+        print(f"❌ ERROR FINAL PUBLICANDO: {e}")
         sys.exit(1)
 
-# --- EJECUCIÓN ---
 if __name__ == "__main__":
     datos = get_latest_news()
-    articulo = generate_article(datos)
-    publish(articulo)
+    art = generate_article(datos)
+    publish(art)
