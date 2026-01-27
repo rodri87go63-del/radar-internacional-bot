@@ -7,13 +7,15 @@ import json
 import random
 import time
 import sys
-import urllib.parse
+
+print("🔥 INICIANDO SISTEMA DE NOTICIAS (MODO ROBUSTO)...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
     "http://feeds.bbci.co.uk/news/world/rss.xml",
     "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    "https://www.rt.com/rss/news/"
+    "https://www.rt.com/rss/news/",
+    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"
 ]
 
 try:
@@ -22,57 +24,50 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # USAMOS EL MODELO FLASH (Es el que funciona con tu librería actual)
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    # Usamos Flash porque es el soportado actualmente
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    print(f"Error config: {e}")
+    print(f"❌ Error Configuración: {e}")
     sys.exit(1)
 
-# --- 2. OBTENER INFORMACIÓN ---
+# --- 2. OBTENER NOTICIAS REALES ---
 def get_latest_news():
-    print("📡 Leyendo cables de noticias...")
+    print("📡 Buscando cables de noticias...")
     news_pool = []
     for url in RSS_URLS:
         try:
             feed = feedparser.parse(url)
             for entry in feed.entries[:4]:
-                # Limpiamos el texto para que no sea muy largo
-                summary = entry.summary if 'summary' in entry else entry.title
-                news_pool.append(f"- {entry.title}: {summary[:200]}...")
+                news_pool.append(f"- {entry.title}")
         except:
             pass
+    
+    if not news_pool:
+        # Si fallan los RSS, usamos un tema genérico para no detenernos
+        return "Actualidad geopolítica mundial y mercados financieros."
+        
     random.shuffle(news_pool)
     return "\n".join(news_pool[:12])
 
-# --- 3. REDACCIÓN PERIODÍSTICA (IA) ---
+# --- 3. REDACCIÓN CON IA (CON RED DE SEGURIDAD) ---
 def generate_article(raw_data):
-    print("🧠 IA redactando artículo completo...")
+    print("🧠 Redactando artículo...")
     
     prompt = f"""
-    Eres el Jefe de Redacción de un medio internacional serio.
-    Información recibida:
+    Eres 'Radar Internacional'. Escribe una noticia HTML basada en estos datos:
     {raw_data}
-
-    Instrucciones:
-    1. Identifica el tema MÁS IMPORTANTE Y ACTUAL de la lista.
-    2. Escribe un artículo de noticias COMPLETO (mínimo 300 palabras).
-    3. Usa un tono formal, objetivo y periodístico.
     
-    ESTRUCTURA JSON REQUERIDA:
+    OBLIGATORIO: Devuelve SOLO este formato JSON exacto:
     {{
-        "titulo": "ESCRIBE UN TITULO IMPACTANTE AQUI",
-        "contenido": "TODO EL CODIGO HTML DEL ARTICULO AQUI",
-        "etiquetas": ["Internacional", "Noticias"]
+        "titulo": "TITULO AQUÍ",
+        "contenido": "CÓDIGO HTML AQUÍ (párrafos, h2, blockquote)",
+        "etiquetas": ["Mundo", "Noticias"]
     }}
     
-    REGLAS PARA EL HTML (contenido):
-    - Empieza con: <p><b>REDACCIÓN INTERNACIONAL (Radar) —</b> [Primer párrafo resumen]</p>
-    - Usa varios párrafos <p> para desarrollar la noticia.
-    - Usa un subtítulo <h2> a la mitad.
-    - Incluye un dato clave en un <blockquote>.
-    - NO incluyas el título H1 dentro del contenido.
-    - NO uses markdown (```), solo JSON puro.
+    REGLAS HTML:
+    - Inicia: <b>LONDRES/WASHINGTON (Radar) —</b>
+    - Estilo: Serio, BBC/CNN.
     """
     
     try:
@@ -80,49 +75,56 @@ def generate_article(raw_data):
         text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"⚠️ Error IA: {e}. Reintentando...")
-        return None
+        print(f"⚠️ La IA falló el formato JSON: {e}")
+        print("⚠️ Activando Plan de Emergencia (Texto simple)...")
+        
+        # PLAN B: Si la IA falla, creamos un artículo manual con lo que haya
+        ts = int(time.time())
+        return {
+            "titulo": f"Resumen Global de Noticias #{ts}",
+            "contenido": f"<p><b>REDACCIÓN CENTRAL (Radar) —</b><br>Informe de última hora. Se reportan los siguientes titulares internacionales:</p><pre>{raw_data[:500]}...</pre><p>Ampliación en breve.</p>",
+            "etiquetas": ["Flash", "Urgente"]
+        }
 
-# --- 4. PUBLICACIÓN CON FOTO IA ---
+# --- 4. PUBLICAR CON FOTO REAL (NO IA) ---
 def publish(article):
-    if not article: return
-    
-    print(f"🚀 Publicando: {article['titulo']}")
-    
-    # Generar imagen IA basada en el título (Pollinations)
-    titulo_seguro = urllib.parse.quote(article['titulo'])
-    img_url = f"https://image.pollinations.ai/prompt/news%20photo%20realistic%20{titulo_seguro}?width=800&height=450&nologo=true"
-    
-    # HTML Final
-    html_content = f"""
-    <div class="separator" style="clear: both; text-align: center; margin-bottom: 20px;">
-        <img border="0" src="{img_url}" style="width: 100%; max-width: 800px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);" />
-        <br/><small style="color:#888;">Imagen generada por IA para contexto noticioso</small>
-    </div>
-    {article['contenido']}
-    <br><hr>
-    <p style="text-align:center; font-size:12px; color:#999;">
-        <i>Radar Internacional - Monitoreo automatizado de prensa global.</i>
-    </p>
-    """
-    
-    body = {
-        "kind": "blogger#post",
-        "title": article["titulo"],
-        "content": html_content,
-        "labels": article.get("etiquetas", ["Noticias"])
-    }
+    print(f"🚀 Preparando publicación: {article['titulo']}")
     
     try:
+        # FOTOS REALES (LoremFlickr busca en Flickr Creative Commons)
+        # Usamos timestamp para que la foto cambie siempre
+        ts = int(time.time())
+        keywords = "news,press,conference,politics,world"
+        img_url = f"https://loremflickr.com/800/450/{keywords}?lock={ts}"
+        
+        html_content = f"""
+        <div class="separator" style="clear: both; text-align: center; margin-bottom: 20px;">
+            <img border="0" src="{img_url}" style="width: 100%; max-width: 800px; border-radius: 6px;" alt="Imagen referencial de noticias" />
+            <br/><small style="color:#777; font-size:10px;">Imagen referencial de archivo (Stock)</small>
+        </div>
+        {article['contenido']}
+        <br><hr>
+        <p style="text-align:center; font-size:12px; color:#999;">
+            <i>Radar Internacional - Cobertura Global Automatizada</i>
+        </p>
+        """
+        
+        body = {
+            "kind": "blogger#post",
+            "title": article["titulo"],
+            "content": html_content,
+            "labels": article.get("etiquetas", ["Noticias"])
+        }
+        
+        # isDraft=False asegura que se publique YA
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡NOTICIA PUBLICADA CORRECTAMENTE!")
+        print("✅ ¡PUBLICACIÓN EXITOSA! Revisa tu blog.")
+        
     except Exception as e:
-        print(f"❌ Error final: {e}")
+        print(f"❌ ERROR PUBLICANDO: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    data = get_latest_news()
-    if data:
-        art = generate_article(data)
-        publish(art)
-    else:
-        print("No hay datos suficientes.")
+    noticias = get_latest_news()
+    articulo = generate_article(noticias)
+    publish(articulo)
