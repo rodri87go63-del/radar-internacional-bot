@@ -10,12 +10,13 @@ import sys
 import re
 import urllib.request
 
-print("🚀 INICIANDO SISTEMA DE NOTICIAS 2.0...")
+print("🚀 INICIANDO RADAR INTERNACIONAL (VERSIÓN PRO)...")
 
 # --- 1. CONFIGURACIÓN ---
-# Usamos URLs que suelen ser más permisivas
+# Fuentes fiables
 RSS_URLS = [
     "http://feeds.bbci.co.uk/news/world/rss.xml",
+    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
     "https://www.rt.com/rss/news/",
     "https://rss.elpais.com/rss/internacional/portada.xml"
 ]
@@ -28,104 +29,117 @@ try:
     
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash')
-    print("✅ Credenciales configuradas correctamente.")
 except Exception as e:
-    print(f"❌ ERROR CRÍTICO DE CREDENCIALES: {e}")
+    print(f"❌ Error Credenciales: {e}")
     sys.exit(1)
 
-# --- 2. OBTENER NOTICIAS (CON DISFRAZ) ---
+# --- 2. LECTURA DE NOTICIAS (CON DISFRAZ) ---
 def get_latest_news():
-    print("📡 Conectando con agencias de noticias...")
+    print("📡 Escaneando el mundo...")
     news_text = ""
-    
-    # Truco: Añadimos 'User-Agent' para no parecer un robot
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     for url in RSS_URLS:
         try:
-            # Descargar el feed manualmente con el disfraz
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req) as response:
-                xml_data = response.read()
-                feed = feedparser.parse(xml_data)
-                
-            print(f"   - {url}: {len(feed.entries)} noticias encontradas.")
+                feed = feedparser.parse(response.read())
             
-            for entry in feed.entries[:3]:
-                title = entry.title
-                news_text += f"- {title}\n"
-        except Exception as e:
-            print(f"   ⚠️ Error leyendo {url}: {e}")
-
+            # Tomamos 2 noticias de cada medio para tener variedad
+            for entry in feed.entries[:2]:
+                news_text += f"- {entry.title}\n"
+        except:
+            pass
+            
     if len(news_text) < 10:
-        print("❌ ALERTA: No se pudieron descargar noticias. Usando respaldo.")
-        return "El panorama internacional se centra hoy en la economía global, tensiones geopolíticas en Europa y avances tecnológicos en inteligencia artificial."
-    
+        return "Crisis económica global y tensiones políticas en aumento."
     return news_text
 
-# --- 3. REDACCIÓN INTELIGENTE (ESPAÑOL) ---
+# --- 3. FUNCIÓN DE LIMPIEZA (EL CIRUJANO) ---
+def limpiar_json(texto_sucio):
+    # Esta función busca donde empieza '{' y donde termina '}'
+    try:
+        inicio = texto_sucio.find('{')
+        fin = texto_sucio.rfind('}') + 1
+        if inicio != -1 and fin != 0:
+            json_str = texto_sucio[inicio:fin]
+            return json.loads(json_str)
+        else:
+            return None
+    except:
+        return None
+
+# --- 4. CEREBRO IA (FUERZA BRUTA EN ESPAÑOL) ---
 def generate_article(raw_data):
-    print("🧠 IA Analizando y Redactando...")
+    print("🧠 IA: Escribiendo noticia en Español...")
     
     prompt = f"""
-    Eres el Editor de 'Radar Internacional'.
-    CABLES DE NOTICIAS:
+    Eres un periodista senior de 'Radar Internacional'.
+    CABLES RECIBIDOS (Inglés/Español):
     {raw_data}
 
-    INSTRUCCIONES:
-    1. Elige la noticia más relevante.
-    2. Escribe un artículo en ESPAÑOL NEUTRO PERFECTO.
-    3. Estilo: Periodístico, formal, serio.
-    4. Define 2 palabras clave en INGLÉS para buscar la foto (ej: "Biden, Congress").
+    TU MISIÓN:
+    1. Selecciona la noticia más importante.
+    2. TRADUCE Y REDACTA un artículo completo en ESPAÑOL NEUTRO.
+    3. NO inventes noticias, usa los datos.
+    4. Selecciona 2 palabras clave en INGLÉS para la foto (ej: "War, Tank" o "Meeting, Politician").
 
     FORMATO JSON OBLIGATORIO:
     {{
-        "titulo": "TITULO EN ESPAÑOL AQUI",
-        "contenido": "CONTENIDO HTML AQUI",
-        "foto_keywords": "keyword1,keyword2"
+        "titulo": "TITULO IMPACTANTE EN ESPAÑOL",
+        "contenido": "CODIGO HTML AQUI",
+        "keywords_foto": "keyword1,keyword2"
     }}
 
     REGLAS HTML:
-    - Inicia con: <b>LONDRES/NUEVA YORK (Radar) —</b>
-    - Usa <p>, <h2> y <blockquote>.
-    - Texto largo y detallado.
+    - Primer párrafo empieza con: <b>LONDRES/NUEVA YORK (Radar) —</b>
+    - Usa párrafos <p>, subtítulos <h2> y citas <blockquote>.
+    - Mínimo 300 palabras.
     """
     
     try:
         response = model.generate_content(prompt)
-        text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        # Usamos el cirujano para extraer el JSON limpio
+        datos = limpiar_json(response.text)
+        
+        if datos:
+            return datos
+        else:
+            raise Exception("La IA no devolvió JSON válido")
+            
     except Exception as e:
-        print(f"❌ Error IA: {e}")
-        # Plan de emergencia si la IA falla
-        ts = int(time.time())
+        print(f"⚠️ Error IA: {e}")
+        # Plan C: Si falla, devolvemos esto para no quedarnos en blanco
         return {
-            "titulo": f"Boletín Urgente Radar #{ts}",
-            "contenido": f"<p><b>REDACCIÓN (Radar) —</b><br>Resumen de titulares procesados: {raw_data[:200]}...</p>",
-            "foto_keywords": "news, paper"
+            "titulo": "Actualidad Global: Resumen del Día",
+            "contenido": f"<p><b>REDACCIÓN (Radar) —</b> Se están procesando múltiples reportes internacionales. Titulares destacados:<br><br>{raw_data[:400]}...</p>",
+            "keywords_foto": "news, newspaper"
         }
 
-# --- 4. PUBLICAR CON FOTO REAL ---
+# --- 5. PUBLICAR ---
 def publish(article):
     print(f"🚀 Publicando: {article['titulo']}")
+    
     try:
-        # Búsqueda de foto real en Flickr (LoremFlickr)
-        keywords = article.get("foto_keywords", "news").replace(" ", "").replace(",", ",")
+        # FOTOS REALES (LoremFlickr)
+        # Limpiamos las keywords para que la URL sea válida
+        tags = article.get("keywords_foto", "news").replace(" ", "").strip()
         ts = int(time.time())
-        # Filtramos por 'all' para tener más variedad
-        img_url = f"https://loremflickr.com/800/450/{keywords}/all?lock={ts}"
+        img_url = f"https://loremflickr.com/800/450/{tags}/all?lock={ts}"
         
         html = f"""
-        <div style="font-family: Georgia, serif; color: #333; font-size: 18px; line-height: 1.6;">
-            <div class="separator" style="clear: both; text-align: center; margin-bottom: 20px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de actualidad"/>
-                <br/><small style="font-family:Arial; font-size:11px; color:#666;">Imagen referencial ({keywords})</small>
+        <div style="font-family: Georgia, serif; font-size: 18px; color: #222; line-height: 1.6;">
+            
+            <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px; box-shadow:0 2px 8px rgba(0,0,0,0.1);" alt="Imagen de la noticia"/>
+                <br/><small style="font-family:Arial,sans-serif; font-size:11px; color:#777;">Imagen referencial: {tags}</small>
             </div>
+
             {article['contenido']}
-            <br><hr>
-            <p style="font-family:Arial; font-size:12px; color:#888; text-align:center;">
-                Radar Internacional © 2025 - Cobertura Global
-            </p>
+
+            <div style="margin-top:40px; padding-top:20px; border-top:1px solid #ddd; text-align:center; font-family:Arial,sans-serif; font-size:12px; color:#888;">
+                Radar Internacional © 2025<br>Cobertura automatizada de fuentes globales.
+            </div>
         </div>
         """
         
@@ -136,11 +150,11 @@ def publish(article):
             "labels": ["Internacional", "Noticias", "Mundo"]
         }
         
-        res = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print(f"✅ ¡PUBLICADO CON ÉXITO! URL: {res.get('url')}")
+        service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
+        print("✅ ¡EXITO! Noticia publicada.")
         
     except Exception as e:
-        print(f"❌ ERROR FINAL PUBLICANDO: {e}")
+        print(f"❌ Error publicando: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
