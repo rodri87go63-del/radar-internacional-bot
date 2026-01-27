@@ -11,16 +11,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
-      # CAMBIO IMPORTANTE: Usamos Python 3.10
-      - name: Python Setup
-        uses: actions/setup-python@v4 
+      - name: Configurar Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           
-      - name: Instalar
+      - name: Instalar Herramientas
         run: pip install -U feedparser google-generativeai google-auth google-api-python-client requests
 
-      - name: Ejecutar
+      - name: Ejecutar Robot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           BLOG_ID: ${{ secrets.BLOG_ID }}
