@@ -7,18 +7,15 @@ import json
 import random
 import time
 import sys
-import re
 import urllib.request
 
-print("🚀 INICIANDO RADAR INTERNACIONAL (VERSIÓN PRO)...")
+print("📰 INICIANDO EDICIÓN CENTRAL (FUENTES EN ESPAÑOL)...")
 
-# --- 1. CONFIGURACIÓN ---
-# Fuentes fiables
+# --- 1. CONFIGURACIÓN (FUENTES 100% ESPAÑOL) ---
 RSS_URLS = [
-    "http://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    "https://www.rt.com/rss/news/",
-    "https://rss.elpais.com/rss/internacional/portada.xml"
+    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",
+    "https://www.bbc.com/mundo/temas/internacional/index.xml",
+    "https://rss.dw.com/xml/rss-sp-all"
 ]
 
 try:
@@ -30,14 +27,15 @@ try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    print(f"❌ Error Credenciales: {e}")
+    print(f"❌ Error Config: {e}")
     sys.exit(1)
 
-# --- 2. LECTURA DE NOTICIAS (CON DISFRAZ) ---
+# --- 2. OBTENER NOTICIAS (YA EN ESPAÑOL) ---
 def get_latest_news():
-    print("📡 Escaneando el mundo...")
+    print("📡 Conectando con agencias hispanas...")
     news_text = ""
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # Disfraz para que no nos bloqueen
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     
     for url in RSS_URLS:
         try:
@@ -45,100 +43,97 @@ def get_latest_news():
             with urllib.request.urlopen(req) as response:
                 feed = feedparser.parse(response.read())
             
-            # Tomamos 2 noticias de cada medio para tener variedad
-            for entry in feed.entries[:2]:
-                news_text += f"- {entry.title}\n"
+            # Recopilamos más contexto (Titulo + Resumen)
+            for entry in feed.entries[:3]:
+                desc = entry.summary if 'summary' in entry else ""
+                news_text += f"TITULAR: {entry.title}\nCONTEXTO: {desc}\n\n"
         except:
             pass
             
-    if len(news_text) < 10:
-        return "Crisis económica global y tensiones políticas en aumento."
+    if len(news_text) < 50:
+        return "Crisis en mercados globales y tensiones diplomáticas en aumento."
     return news_text
 
-# --- 3. FUNCIÓN DE LIMPIEZA (EL CIRUJANO) ---
-def limpiar_json(texto_sucio):
-    # Esta función busca donde empieza '{' y donde termina '}'
-    try:
-        inicio = texto_sucio.find('{')
-        fin = texto_sucio.rfind('}') + 1
-        if inicio != -1 and fin != 0:
-            json_str = texto_sucio[inicio:fin]
-            return json.loads(json_str)
-        else:
-            return None
-    except:
-        return None
-
-# --- 4. CEREBRO IA (FUERZA BRUTA EN ESPAÑOL) ---
+# --- 3. REDACCIÓN EXTENSA (FORMATO ROBUSTO) ---
 def generate_article(raw_data):
-    print("🧠 IA: Escribiendo noticia en Español...")
+    print("🧠 IA: Redactando análisis profundo...")
     
+    # EL SECRETO: Usamos separadores ||| en lugar de JSON complejo
     prompt = f"""
-    Eres un periodista senior de 'Radar Internacional'.
-    CABLES RECIBIDOS (Inglés/Español):
+    Eres un Periodista de Investigación Senior de 'Radar Internacional'.
+    
+    INFORMACIÓN DISPONIBLE:
     {raw_data}
 
-    TU MISIÓN:
-    1. Selecciona la noticia más importante.
-    2. TRADUCE Y REDACTA un artículo completo en ESPAÑOL NEUTRO.
-    3. NO inventes noticias, usa los datos.
-    4. Selecciona 2 palabras clave en INGLÉS para la foto (ej: "War, Tank" o "Meeting, Politician").
+    TU TAREA:
+    1. Identifica el conflicto o evento más grave de la lista.
+    2. Escribe un ARTÍCULO DE FONDO (Extenso, serio, profesional).
+    3. NO uses saludos ni explicaciones.
+    4. El idioma debe ser ESPAÑOL NEUTRO.
 
-    FORMATO JSON OBLIGATORIO:
-    {{
-        "titulo": "TITULO IMPACTANTE EN ESPAÑOL",
-        "contenido": "CODIGO HTML AQUI",
-        "keywords_foto": "keyword1,keyword2"
-    }}
+    ESTRUCTURA DE RESPUESTA OBLIGATORIA (Usa los separadores |||):
+    TITULO DEL ARTÍCULO|||CONTENIDO HTML|||KEYWORDS_EN_INGLES
 
-    REGLAS HTML:
-    - Primer párrafo empieza con: <b>LONDRES/NUEVA YORK (Radar) —</b>
-    - Usa párrafos <p>, subtítulos <h2> y citas <blockquote>.
-    - Mínimo 300 palabras.
+    DETALLES DEL CONTENIDO HTML:
+    - Empieza con: <p><b>REDACCIÓN CENTRAL (Radar) —</b> ...</p>
+    - Mínimo 400 palabras.
+    - Usa subtítulos <h3> para separar secciones.
+    - Usa un tono analítico (explica las causas y consecuencias).
+    - Cierra con una conclusión.
     """
     
     try:
         response = model.generate_content(prompt)
-        # Usamos el cirujano para extraer el JSON limpio
-        datos = limpiar_json(response.text)
+        texto = response.text.strip()
         
-        if datos:
-            return datos
+        # Separamos las partes usando el separador mágico
+        partes = texto.split("|||")
+        
+        if len(partes) >= 3:
+            return {
+                "titulo": partes[0].strip(),
+                "contenido": partes[1].strip().replace("```html", "").replace("```", ""),
+                "keywords": partes[2].strip()
+            }
         else:
-            raise Exception("La IA no devolvió JSON válido")
+            raise Exception("Formato de respuesta incorrecto")
             
     except Exception as e:
         print(f"⚠️ Error IA: {e}")
-        # Plan C: Si falla, devolvemos esto para no quedarnos en blanco
+        # Plan de Respaldo MEJORADO (Ya está en español)
+        ts = int(time.time())
         return {
-            "titulo": "Actualidad Global: Resumen del Día",
-            "contenido": f"<p><b>REDACCIÓN (Radar) —</b> Se están procesando múltiples reportes internacionales. Titulares destacados:<br><br>{raw_data[:400]}...</p>",
-            "keywords_foto": "news, newspaper"
+            "titulo": f"Informe de Actualidad Global #{ts}",
+            "contenido": f"<p><b>REDACCIÓN (Radar) —</b><br>Nuestros corresponsales informan los siguientes titulares destacados del día:</p><pre style='white-space: pre-wrap;'>{raw_data[:800]}...</pre><p>Se está ampliando la información de estos sucesos.</p>",
+            "keywords": "news, world"
         }
 
-# --- 5. PUBLICAR ---
+# --- 4. PUBLICAR ---
 def publish(article):
     print(f"🚀 Publicando: {article['titulo']}")
     
     try:
-        # FOTOS REALES (LoremFlickr)
-        # Limpiamos las keywords para que la URL sea válida
-        tags = article.get("keywords_foto", "news").replace(" ", "").strip()
+        # Foto Real
+        tags = article['keywords'].replace(" ", "").replace("\n", "")
         ts = int(time.time())
+        # Buscamos en LoremFlickr
         img_url = f"https://loremflickr.com/800/450/{tags}/all?lock={ts}"
         
         html = f"""
-        <div style="font-family: Georgia, serif; font-size: 18px; color: #222; line-height: 1.6;">
+        <div style="font-family: 'Georgia', serif; font-size: 19px; color: #1a1a1a; line-height: 1.8;">
             
-            <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px; box-shadow:0 2px 8px rgba(0,0,0,0.1);" alt="Imagen de la noticia"/>
-                <br/><small style="font-family:Arial,sans-serif; font-size:11px; color:#777;">Imagen referencial: {tags}</small>
+            <div class="separator" style="clear: both; text-align: center; margin-bottom: 30px;">
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:3px;" alt="Imagen de actualidad"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666; text-transform:uppercase; letter-spacing:1px;">Fotografía de Archivo: {tags}</small>
             </div>
 
             {article['contenido']}
 
-            <div style="margin-top:40px; padding-top:20px; border-top:1px solid #ddd; text-align:center; font-family:Arial,sans-serif; font-size:12px; color:#888;">
-                Radar Internacional © 2025<br>Cobertura automatizada de fuentes globales.
+            <div style="margin-top:50px; padding:20px; background:#f4f4f4; border-left:5px solid #000;">
+                <p style="font-family:Arial,sans-serif; font-size:14px; color:#444; margin:0;">
+                    <b>RADAR INTERNACIONAL</b><br>
+                    <i>Análisis independiente de fuentes globales (BBC Mundo, DW, El País).</i>
+                </p>
             </div>
         </div>
         """
@@ -147,14 +142,14 @@ def publish(article):
             "kind": "blogger#post",
             "title": article["titulo"],
             "content": html,
-            "labels": ["Internacional", "Noticias", "Mundo"]
+            "labels": ["Internacional", "Portada", "Mundo"]
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡EXITO! Noticia publicada.")
+        print("✅ ¡NOTICIA PUBLICADA!")
         
     except Exception as e:
-        print(f"❌ Error publicando: {e}")
+        print(f"❌ Error Publicando: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
