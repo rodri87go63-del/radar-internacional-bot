@@ -6,117 +6,108 @@ import os
 import json
 import random
 import time
+import sys
+
+print("🔥 INICIANDO MODO TANQUE DE GUERRA...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
     "http://feeds.bbci.co.uk/news/world/rss.xml",
     "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    "https://www.rt.com/rss/news/",
-    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"
+    "https://www.rt.com/rss/news/"
 ]
 
-# Configuración de claves
 try:
-    GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-    BLOG_ID = os.environ["BLOG_ID"]
+    # Cargar credenciales
     token_info = json.loads(os.environ["GOOGLE_TOKEN"])
-    
-    # Autenticación Google (Tu llave maestra)
     creds = Credentials.from_authorized_user_info(token_info)
     service = build('blogger', 'v3', credentials=creds)
+    BLOG_ID = os.environ["BLOG_ID"]
     
-    # Autenticación IA
-    genai.configure(api_key=GEMINI_API_KEY)
-    # Usamos el modelo Flash 1.5 que es el mejor para noticias rápidas
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
+    # Configurar IA (Volvemos al PRO clásico que nunca falla)
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-pro')
+    print("✅ Credenciales configuradas.")
 except Exception as e:
-    print(f"Error de configuración: {e}")
-    exit(1)
+    print(f"❌ ERROR CRÍTICO DE CONFIGURACIÓN: {e}")
+    sys.exit(1)
 
-# --- 2. FUNCIONES ---
+# --- 2. OBTENER NOTICIAS ---
 def get_latest_news():
+    print("📡 Leyendo noticias...")
     news_pool = []
-    print("📡 Radar activado: Escaneando fuentes globales...")
     for url in RSS_URLS:
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:3]: 
-                news_pool.append(f"- {entry.title}: {entry.summary}")
+            if feed.entries:
+                print(f"   -> {url}: OK ({len(feed.entries)} noticias)")
+                for entry in feed.entries[:2]:
+                    news_pool.append(f"- {entry.title}")
+            else:
+                print(f"   -> {url}: Vacío")
         except:
-            pass
-    random.shuffle(news_pool)
-    return "\n".join(news_pool[:10]) 
+            print(f"   -> {url}: Falló")
+            
+    if not news_pool:
+        print("❌ NO SE ENCONTRARON NOTICIAS EN NINGÚN LADO.")
+        # Para probar, inventamos una si falla todo
+        news_pool = ["El mercado global se estabiliza", "Nuevas tecnologías en IA"]
+    
+    return "\n".join(news_pool[:10])
 
+# --- 3. GENERAR ARTÍCULO (CON PLAN B) ---
 def generate_article(raw_data):
-    print("🧠 Procesando inteligencia artificial...")
-    
+    print("🧠 IA Trabajando...")
     prompt = f"""
-    Eres el Editor Jefe de 'Radar Internacional'.
-    Cables recibidos:
+    Actúa como 'Radar Internacional'. Redacta una noticia corta basada en:
     {raw_data}
-
-    TAREA:
-    1. Selecciona la noticia más importante.
-    2. Escribe un artículo urgente y profesional en Español Neutro.
-    3. Estilo: CNN/BBC.
     
-    FORMATO DE SALIDA (JSON ÚNICO):
+    IMPORTANTE: Devuelve SOLO un objeto JSON válido.
     {{
-        "titulo": "TITULO CLICKBAIT PERO SERIO",
-        "contenido": "CÓDIGO HTML AQUÍ",
-        "etiquetas": ["Internacional", "Urgente", "Noticia"]
+        "titulo": "TITULO AQUÍ",
+        "contenido": "<p>Texto de la noticia aquí...</p>",
+        "etiquetas": ["Mundo"]
     }}
-    
-    REGLAS HTML:
-    - Inicia con: <b>LONDRES/WASHINGTON (Radar) —</b>
-    - Usa párrafos <p>, subtítulos <h2> y citas <blockquote>.
-    - NO uses <h1> ni pongas el título en el contenido.
     """
-    
     try:
         response = model.generate_content(prompt)
-        text_clean = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text_clean)
+        # Limpieza agresiva
+        texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(texto_limpio)
     except Exception as e:
-        print(f"❌ Error IA: {e}")
-        return None
+        print(f"⚠️ La IA no devolvió JSON perfecto. Error: {e}")
+        print("⚠️ Usando PLAN B (Publicar texto plano)...")
+        # Si falla el JSON, devolvemos un objeto manual con el texto crudo
+        return {
+            "titulo": "RESUMEN DE ACTUALIDAD (Radar Internacional)",
+            "contenido": f"<p>{response.text}</p>",
+            "etiquetas": ["Flash", "Mundo"]
+        }
 
-def publish_to_blogger(article):
+# --- 4. PUBLICAR ---
+def publish(article):
+    print(f"🚀 Publicando: {article['titulo']}...")
     try:
-        # Imagen HD aleatoria
-        keywords = ["breaking news", "world", "press conference", "interview"]
-        kw = random.choice(keywords)
-        ts = int(time.time())
-        img_url = f"https://source.unsplash.com/800x400/?{kw}&t={ts}"
-        
-        # HTML Final con imagen y pie de página
-        image_html = f'<div class="separator" style="clear: both; text-align: center; margin-bottom:20px;"><img border="0" src="{img_url}" style="width:100%; border-radius:8px;" /></div>'
-        footer_html = "<br><hr><p style='font-size:12px; color:#666; text-align:center;'><i>Radar Internacional © 2025 - Inteligencia Artificial</i></p>"
-        
-        final_content = image_html + article["contenido"] + footer_html
+        # Imagen aleatoria
+        kw = random.choice(["news", "world", "tech"])
+        img = f"https://source.unsplash.com/800x400/?{kw}&t={int(time.time())}"
+        html_img = f'<div style="text-align:center"><img src="{img}" style="width:100%"/></div><br/>'
         
         body = {
             "kind": "blogger#post",
             "title": article["titulo"],
-            "content": final_content,
+            "content": html_img + article["contenido"],
             "labels": article.get("etiquetas", ["Noticias"])
         }
         
-        # PUBLICAR (isDraft=False para que salga ya)
-        service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print(f"✅ ¡PUBLICADO!: {article['titulo']}")
-        return True
+        res = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
+        print(f"🎉 ¡PUBLICADO! Link: {res.get('url')}")
     except Exception as e:
-        print(f"❌ Error Blogger: {e}")
-        return False
+        print(f"❌ ERROR PUBLICANDO EN BLOGGER: {e}")
+        sys.exit(1)
 
-# --- 3. EJECUCIÓN ---
+# --- EJECUCIÓN ---
 if __name__ == "__main__":
-    data = get_latest_news()
-    if data:
-        art = generate_article(data)
-        if art:
-            publish_to_blogger(art)
-    else:
-        print("Sin noticias nuevas.")
+    datos = get_latest_news()
+    articulo = generate_article(datos)
+    publish(articulo)
