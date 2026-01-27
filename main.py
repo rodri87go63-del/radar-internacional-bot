@@ -26,7 +26,7 @@ try:
     
     # Autenticación con la IA
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
 except Exception as e:
     print(f"Error de configuración: {e}")
     exit()
