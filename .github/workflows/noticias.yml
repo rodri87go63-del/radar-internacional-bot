@@ -14,11 +14,11 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.11' # Versión ideal para la nueva librería
           
-      # INSTALAMOS SOLO LO NECESARIO (Sin la librería de IA que falla)
       - name: Instalar Herramientas
-        run: pip install feedparser google-auth google-api-python-client requests
+        # AQUÍ ESTÁ EL CAMBIO: instalamos 'google-genai'
+        run: pip install feedparser google-genai google-auth google-api-python-client
 
       - name: Ejecutar Robot
         env:
