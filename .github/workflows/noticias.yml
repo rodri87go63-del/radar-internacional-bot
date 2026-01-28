@@ -11,13 +11,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
+      # FORZAMOS PYTHON 3.10 (El 3.9 da error con Gemini Flash)
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           
+      # FORZAMOS ACTUALIZACIÓN DE LIBRERÍAS
       - name: Instalar Herramientas
-        run: pip install -U feedparser google-generativeai google-auth google-api-python-client requests
+        run: pip install --upgrade --force-reinstall feedparser google-generativeai google-auth google-api-python-client requests
 
       - name: Ejecutar Robot
         env:
