@@ -9,7 +9,7 @@ import sys
 import urllib.request
 import requests 
 
-print("🚀 INICIANDO RADAR (MODELO GEMINI-PRO ESTÁNDAR)...")
+print("🚀 INICIANDO RADAR (MODELO FLASH 1.5 - MÉTODO DIRECTO)...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
@@ -24,17 +24,17 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # 2. Configurar URL Directa (USAMOS GEMINI-PRO QUE ES EL MÁS COMPATIBLE)
+    # 2. URL DIRECTA A LA IA (GEMINI 1.5 FLASH)
+    # Esta es la dirección exacta que funciona hoy.
     API_KEY = os.environ["GEMINI_API_KEY"]
-    # CAMBIO AQUÍ: Usamos 'gemini-pro' en lugar de flash
-    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     print("✅ Credenciales OK.")
 except Exception as e:
     print(f"❌ Error Config: {e}")
     sys.exit(1)
 
-# --- 2. SELECCIONAR NOTICIA ---
+# --- 2. SELECCIONAR UNA NOTICIA ---
 def get_one_story():
     print("📡 Buscando noticia...")
     candidates = []
@@ -46,6 +46,7 @@ def get_one_story():
             with urllib.request.urlopen(req) as response:
                 feed = feedparser.parse(response.read())
             
+            # Filtramos noticias con contenido
             for entry in feed.entries[:5]:
                 summary = entry.summary if hasattr(entry, 'summary') else entry.title
                 if len(summary) > 20:
@@ -54,40 +55,50 @@ def get_one_story():
             pass
             
     if not candidates:
-        print("⚠️ No se encontraron noticias RSS.")
+        print("⚠️ No hay noticias RSS disponibles.")
         return None
+    
+    # Elegimos una al azar
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN ---
+# --- 3. REDACCIÓN (CONEXIÓN DIRECTA) ---
 def write_full_article(story_data):
-    print("🧠 IA: Redactando con Gemini Pro...")
+    print("🧠 IA: Redactando reportaje extenso...")
     
     prompt = f"""
-    Eres un Periodista Senior de 'Radar Internacional'.
+    Eres un Reportero Senior de 'Radar Internacional'.
     
-    NOTICIA:
+    FUENTE DE LA NOTICIA:
     {story_data}
 
-    TAREA:
-    Escribe un ARTÍCULO LARGO (4 párrafos) en ESPAÑOL NEUTRO.
-    Extiende la información explicando el contexto.
+    TU TAREA:
+    Escribe un ARTÍCULO COMPLETO Y LARGO en ESPAÑOL NEUTRO.
+    No hagas un resumen. Desarrolla la noticia explicando el contexto, antecedentes y qué significa esto para el mundo.
+
+    REQUISITOS OBLIGATORIOS:
+    1. **TÍTULO:** Un titular periodístico real y serio (Sin números, sin "Informe").
+    2. **CONTENIDO:** Mínimo 4 párrafos largos.
+    3. **FOTO:** Dame 1 sola palabra clave en INGLÉS que describa el SUJETO PRINCIPAL (ej: "Biden", "Ukraine", "Oil", "Protest"). Debe ser algo concreto para buscar la foto.
     
     FORMATO DE SALIDA (Usa el separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
 
     REGLAS HTML:
-    - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
-    - Usa <p> para párrafos.
-    - No uses Markdown.
+    - Primer párrafo empieza: <b>LONDRES/WASHINGTON (Radar) —</b> ...
+    - Usa <p> para cada párrafo.
+    - Usa <b>negritas</b> para nombres importantes.
+    - NO uses Markdown.
     """
     
+    # Empaquetamos el mensaje
     payload = { "contents": [{ "parts": [{"text": prompt}] }] }
     
     try:
+        # Petición POST directa
         response = requests.post(API_URL, json=payload)
         
         if response.status_code != 200:
-            print(f"❌ Error Google: {response.text}")
+            print(f"❌ Error Google ({response.status_code}): {response.text}")
             return None
             
         result = response.json()
@@ -104,8 +115,13 @@ def write_full_article(story_data):
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ Formato incorrecto recibido de la IA.")
-            return None 
+            print("⚠️ La IA no respetó el formato. Intentando reciclar texto...")
+            # Si falla el formato, intentamos salvar el texto
+            return {
+                "titulo": "Actualidad Global: Informe Especial",
+                "foto_keyword": "news",
+                "contenido": f"<p>{texto}</p>"
+            }
             
     except Exception as e:
         print(f"⚠️ Error IA: {e}")
@@ -122,16 +138,22 @@ def publish(article):
     try:
         tag = article['foto_keyword'].replace(" ", "")
         ts = int(time.time())
+        # Buscamos foto real en Flickr usando la palabra clave de la noticia
         img_url = f"https://loremflickr.com/800/500/{tag}/all?lock={ts}"
         
         html = f"""
-        <div style="font-family: 'Georgia', serif; font-size: 18px; line-height: 1.8;">
-            <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="{tag}"/>
-                <br/><small style="font-family:Arial; font-size:10px; color:#666;">ARCHIVO: {tag.upper()}</small>
+        <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
+            
+            <div class="separator" style="clear: both; text-align: center; margin-bottom: 30px;">
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:4px; box-shadow:0 4px 8px rgba(0,0,0,0.1);" alt="Imagen: {tag}"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666; text-transform:uppercase;">ARCHIVO: {tag}</small>
             </div>
+
             {article['contenido']}
-            <br><hr><i>Radar Internacional</i>
+
+            <div style="margin-top:40px; padding-top:10px; border-top:1px solid #ccc;">
+                <p style="font-family:Arial; font-size:12px; color:#888;">Radar Internacional - Cobertura Global</p>
+            </div>
         </div>
         """
         
@@ -143,7 +165,7 @@ def publish(article):
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡EXITO TOTAL!")
+        print("✅ ¡EXITO TOTAL! Noticia publicada.")
         
     except Exception as e:
         print(f"❌ Error publicando: {e}")
@@ -155,6 +177,5 @@ if __name__ == "__main__":
         art = write_full_article(story)
         publish(art)
     else:
-        # Fallback de emergencia si no hay RSS
-        print("⚠️ Usando noticia de emergencia.")
+        print("❌ Error RSS")
         sys.exit(1)
