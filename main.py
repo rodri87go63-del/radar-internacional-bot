@@ -8,11 +8,10 @@ import random
 import time
 import sys
 import urllib.request
-import re
 
-print("📰 INICIANDO REDACCIÓN DE ARTÍCULO DE FONDO...")
+print("📰 INICIANDO REDACCIÓN EXTENSA (SISTEMA SIN JSON)...")
 
-# --- 1. FUENTES DE NOTICIAS (ESPAÑOL) ---
+# --- 1. FUENTES ---
 RSS_URLS = [
     "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",
     "https://www.bbc.com/mundo/temas/internacional/index.xml",
@@ -28,12 +27,12 @@ try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    print(f"❌ Error Configuración: {e}")
+    print(f"❌ Error Config: {e}")
     sys.exit(1)
 
-# --- 2. SELECCIONAR UNA SOLA NOTICIA (ESTRATEGIA FRANCOTIRADOR) ---
+# --- 2. SELECCIONAR NOTICIA ---
 def get_single_news_item():
-    print("📡 Buscando la mejor historia del momento...")
+    print("📡 Buscando noticia principal...")
     candidates = []
     headers = {'User-Agent': 'Mozilla/5.0'}
     
@@ -43,139 +42,127 @@ def get_single_news_item():
             with urllib.request.urlopen(req) as response:
                 feed = feedparser.parse(response.read())
             
-            # Guardamos las noticias que tengan resumen para tener contexto
-            for entry in feed.entries[:5]:
-                if hasattr(entry, 'summary') and len(entry.summary) > 20:
-                    candidates.append({
-                        "titulo": entry.title,
-                        "resumen": entry.summary,
-                        "link": entry.link
-                    })
+            for entry in feed.entries[:6]:
+                if len(entry.title) > 10: # Evitar vacíos
+                    candidates.append(f"{entry.title}. {entry.summary if hasattr(entry, 'summary') else ''}")
         except:
             pass
             
     if not candidates:
         return None
     
-    # Elegimos UNA noticia al azar de las candidatas para asegurar variedad
-    # Esto evita que siempre coja la primera si se ejecuta seguido
-    seleccionada = random.choice(candidates)
-    print(f"🎯 Noticia seleccionada para reportaje: {seleccionada['titulo']}")
-    return seleccionada
+    # Seleccionamos una al azar para variar
+    return random.choice(candidates)
 
-# --- 3. REDACCIÓN PROFESIONAL (4 PÁRRAFOS) ---
-def generate_article(news_item):
-    print("🧠 IA: Escribiendo reportaje extenso...")
+# --- 3. REDACCIÓN SIN LÍMITES (FORMATO |||) ---
+def generate_article(news_text):
+    print("🧠 IA: Escribiendo artículo largo...")
     
+    # ESTRATEGIA: Usamos separadores ||| que son indestructibles
     prompt = f"""
-    Eres un Reportero Senior de 'Radar Internacional'.
+    Eres un Periodista Senior de 'Radar Internacional'.
     
-    LA NOTICIA A DESARROLLAR ES:
-    Titular: {news_item['titulo']}
-    Contexto: {news_item['resumen']}
+    NOTICIA A DESARROLLAR:
+    {news_text}
 
     TU TAREA:
-    Escribe un ARTÍCULO COMPLETO en ESPAÑOL NEUTRO expandiendo esta información.
+    Escribe un ARTÍCULO DE ANÁLISIS PROFUNDO Y EXTENSO sobre este tema.
     
-    REQUISITOS OBLIGATORIOS:
-    1. **Título:** Un titular periodístico real y atractivo (SIN números, SIN "Informe #").
-    2. **Extensión:** Mínimo 4 párrafos largos y bien explicados.
-    3. **Formato:** Usa etiquetas HTML.
-    4. **Estilo:** Usa **negritas (<b>)** para resaltar frases clave o nombres importantes en cada párrafo.
-    5. **Keywords:** Dame 2 palabras clave en INGLÉS que describan la imagen visualmente (ej: "War, Tank" o "President, Podium").
-
-    FORMATO DE SALIDA (Solo este JSON):
-    {{
-        "titulo_final": "Tu titular aquí",
-        "contenido_html": "<p>Párrafo 1...</p><p>Párrafo 2...</p>...",
-        "keywords_img": "keyword1, keyword2"
-    }}
+    REGLAS OBLIGATORIAS:
+    1. **Extensión:** MÍNIMO 500 PALABRAS. Quiero 4 o 5 párrafos bien desarrollados.
+    2. **Estructura:**
+       - Párrafo 1: Introducción fuerte con negritas en datos clave.
+       - Párrafo 2 y 3: Desarrollo, contexto histórico, reacciones.
+       - Párrafo 4: Conclusión o proyección futura.
+    3. **Formato:** HTML limpio (<p>, <b>, <blockquote>).
     
-    NO uses Markdown. Solo JSON.
+    FORMATO DE RESPUESTA (IMPORTANTE):
+    Debes devolver los datos separados EXACTAMENTE por tres barras verticales "|||".
+    
+    Ejemplo de salida:
+    TITULO DE LA NOTICIA|||keyword, english|||<p>Párrafo 1...</p><p>Párrafo 2...</p>
+    
+    AHORA TÚ (Solo la respuesta con los |||):
     """
     
     try:
         response = model.generate_content(prompt)
-        # Limpieza de JSON
-        texto = response.text.replace("```json", "").replace("```", "").strip()
-        # A veces la IA falla un poco el JSON, intentamos limpiarlo
-        inicio = texto.find("{")
-        fin = texto.rfind("}") + 1
-        json_str = texto[inicio:fin]
+        raw_text = response.text.strip()
         
-        return json.loads(json_str)
+        # Limpiamos por si la IA pone markdown
+        raw_text = raw_text.replace("```", "").replace("html", "")
+        
+        # Separamos las partes
+        partes = raw_text.split("|||")
+        
+        if len(partes) < 3:
+            # Si falló el formato, intentamos salvar el contenido
+            print("⚠️ Formato imperfecto, intentando recuperar texto...")
+            return {
+                "titulo": "Informe Especial: Actualidad Global",
+                "keywords": "news, world",
+                "contenido": f"{raw_text}" # Publicamos todo lo que haya escrito
+            }
+            
+        return {
+            "titulo": partes[0].strip(),
+            "keywords": partes[1].strip(),
+            "contenido": partes[2].strip()
+        }
         
     except Exception as e:
-        print(f"⚠️ Error IA: {e}. Usando modo manual.")
-        # PLAN DE EMERGENCIA MEJORADO
-        # Si la IA falla, usamos el titular REAL de la noticia, no un número.
-        return {
-            "titulo_final": news_item['titulo'],
-            "contenido_html": f"""
-                <p><b>REDACCIÓN INTERNACIONAL (Radar) —</b></p>
-                <p>Informes recientes destacan que <b>{news_item['titulo']}</b>.</p>
-                <p>{news_item['resumen']}</p>
-                <p>Este evento marca un punto importante en la agenda global actual. Analistas internacionales sugieren que las implicaciones podrían ser significativas a corto plazo.</p>
-                <p><i>Seguiremos ampliando esta información a medida que se desarrollen los hechos.</i></p>
-            """,
-            "keywords_img": "news, world"
-        }
+        print(f"⚠️ Error IA: {e}")
+        return None
 
 # --- 4. PUBLICAR ---
 def publish(article):
-    print(f"🚀 Publicando entrada: {article['titulo_final']}")
+    if not article: return
+    print(f"🚀 Publicando: {article['titulo']}")
     
     try:
-        # FOTO REAL
-        tags = article['keywords_img'].replace(" ", "").replace(",", ",")
+        # Foto Real
+        tags = article['keywords'].replace(" ", "").replace(",", ",")
         ts = int(time.time())
         img_url = f"https://loremflickr.com/800/450/{tags}/all?lock={ts}"
         
         html = f"""
-        <div style="font-family: 'Georgia', serif; font-size: 19px; color: #222; line-height: 1.8;">
+        <div style="font-family: 'Georgia', serif; font-size: 18px; color: #222; line-height: 1.8;">
             
-            <!-- IMAGEN DESTACADA -->
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 30px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" alt="Imagen relacionada"/>
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:4px;" alt="Imagen relacionada"/>
                 <br/>
-                <small style="font-family:Arial,sans-serif; font-size:11px; color:#666; text-transform:uppercase;">
-                    Archivo: {article['keywords_img']}
-                </small>
+                <small style="font-family:Arial; font-size:10px; color:#666;">ARCHIVO: {tags.upper()}</small>
             </div>
 
-            <!-- CUERPO DE LA NOTICIA -->
-            <div style="margin-bottom: 20px;">
-                {article['contenido_html']}
+            <div style="margin-bottom: 30px;">
+                <p><b>REDACCIÓN INTERNACIONAL (Radar) —</b></p>
+                {article['contenido']}
             </div>
 
-            <!-- PIE DE PÁGINA -->
-            <div style="margin-top:40px; border-top: 3px solid #000; padding-top:10px;">
-                <p style="font-family:Arial,sans-serif; font-size:13px; font-weight:bold; color:#000;">
-                    RADAR INTERNACIONAL
-                </p>
+            <div style="background-color:#f5f5f5; padding:15px; border-left:4px solid #333; font-family:Arial,sans-serif; font-size:14px;">
+                <b>Nota del Editor:</b> Este artículo analiza los eventos más recientes basándose en reportes de agencias internacionales. La situación está en desarrollo.
             </div>
         </div>
         """
         
         body = {
             "kind": "blogger#post",
-            "title": article["titulo_final"],
+            "title": article["titulo"],
             "content": html,
-            "labels": ["Mundo", "Noticias", "Actualidad"]
+            "labels": ["Internacional", "Noticias", "Mundo"]
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡PUBLICADO CORRECTAMENTE!")
+        print("✅ ¡NOTICIA LARGA PUBLICADA!")
         
     except Exception as e:
-        print(f"❌ Error al publicar: {e}")
+        print(f"❌ Error Publicando: {e}")
         sys.exit(1)
 
-# --- EJECUCIÓN ---
 if __name__ == "__main__":
-    noticia_base = get_single_news_item()
-    if noticia_base:
-        articulo_terminado = generate_article(noticia_base)
-        publish(articulo_terminado)
+    noticia = get_single_news_item()
+    if noticia:
+        art = generate_article(noticia)
+        publish(art)
     else:
-        print("❌ No se pudieron leer fuentes RSS hoy.")
+        print("❌ Error RSS")
