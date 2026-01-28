@@ -10,7 +10,7 @@ import urllib.request
 import requests 
 import urllib.parse
 
-print("🚀 INICIANDO RADAR (MODO IA PÚBLICA SIN CLAVES)...")
+print("🚀 INICIANDO RADAR (SISTEMA DE FOTOS INTELIGENTES)...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
@@ -19,14 +19,13 @@ RSS_URLS = [
 ]
 
 try:
-    # Solo necesitamos credenciales de Blogger
     token_info = json.loads(os.environ["GOOGLE_TOKEN"])
     creds = Credentials.from_authorized_user_info(token_info)
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     print("✅ Conexión Blogger OK.")
 except Exception as e:
-    print(f"❌ Error Credenciales Blogger: {e}")
+    print(f"❌ Error Credenciales: {e}")
     sys.exit(1)
 
 # --- 2. SELECCIONAR NOTICIA ---
@@ -44,7 +43,8 @@ def get_one_story():
             for entry in feed.entries[:5]:
                 summary = entry.summary if hasattr(entry, 'summary') else entry.title
                 if len(summary) > 20:
-                    candidates.append(f"TITULAR: {entry.title}\nRESUMEN: {summary}")
+                    # Guardamos título y resumen para que la IA entienda de qué hablar
+                    candidates.append(f"TITULAR: {entry.title}\nCONTEXTO: {summary}")
         except:
             pass
             
@@ -52,40 +52,41 @@ def get_one_story():
         return None
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN (USANDO POLLINATIONS TEXT - SIN API KEY) ---
+# --- 3. REDACCIÓN Y DESCRIPCIÓN DE IMAGEN ---
 def write_full_article(story_data):
-    print("🧠 IA: Redactando reportaje (Sistema Alternativo)...")
+    print("🧠 IA: Redactando y diseñando imagen...")
     
-    # Instrucciones para la IA
+    # Instrucciones precisas para la IA
     system_prompt = f"""
     Eres un Periodista Senior de 'Radar Internacional'.
-    Escribe un ARTÍCULO DE FONDO (4 párrafos largos) en ESPAÑOL NEUTRO basado en:
-    {story_data}
     
-    FORMATO DE RESPUESTA OBLIGATORIO (Usa los separadores ||||):
-    TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
+    NOTICIA A CUBRIR:
+    {story_data}
 
-    REGLAS:
-    1. Título serio y profesional.
-    2. KEYWORD_FOTO: Una o dos palabras en inglés que describan la imagen (ej: "War", "Economy", "Trump").
-    3. CONTENIDO: 4 párrafos HTML (<p>). Usa negritas (<b>) para datos clave.
-    4. NO uses Markdown. Solo texto plano con los separadores.
+    TAREAS:
+    1. Escribe un ARTÍCULO DE FONDO (4 párrafos) en ESPAÑOL NEUTRO.
+    2. Crea una DESCRIPCIÓN VISUAL para la foto en INGLÉS.
+       - MAL: "Politics"
+       - BIEN: "Donald Trump speaking at a podium in the White House, realistic news photography, 4k"
+       - BIEN: "Ruins of a building in Gaza after airstrike, smoke, realistic, journalism style"
+    
+    FORMATO DE RESPUESTA OBLIGATORIO (Separador ||||):
+    TITULO_PROFESIONAL||||DESCRIPCION_VISUAL_EN_INGLES||||CONTENIDO_HTML
+
+    REGLAS HTML:
+    - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
+    - Usa <p> para párrafos.
+    - No uses Markdown.
     """
     
     try:
-        # Llamada a la IA pública (No requiere clave)
-        # Codificamos el prompt para enviarlo por URL
+        # Usamos Pollinations Text (Modelo OpenAI/GPT compatible)
         prompt_safe = urllib.parse.quote(system_prompt)
-        # Usamos un seed aleatorio para que varíe la creatividad
         seed = random.randint(1, 10000)
+        # Forzamos modelo 'openai' o 'mistral' para mejor razonamiento
         url = f"https://text.pollinations.ai/{prompt_safe}?model=openai&seed={seed}"
         
-        response = requests.get(url)
-        
-        if response.status_code != 200:
-            print("Error en IA Pública.")
-            return None
-            
+        response = requests.get(url, timeout=60)
         texto = response.text
         
         # Limpieza
@@ -95,17 +96,12 @@ def write_full_article(story_data):
         if len(parts) >= 3:
             return {
                 "titulo": parts[0].strip(),
-                "foto_keyword": parts[1].strip(),
+                "foto_prompt": parts[1].strip(),
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ Formato incorrecto, intentando modo simple...")
-            # Si el formato falla, usamos el texto completo como contenido
-            return {
-                "titulo": "Actualidad Global: Análisis",
-                "foto_keyword": "news",
-                "contenido": f"<p><b>REDACCIÓN (Radar) —</b> {texto}</p>"
-            }
+            print("⚠️ Formato incorrecto de IA.")
+            return None
             
     except Exception as e:
         print(f"⚠️ Error IA: {e}")
@@ -120,19 +116,28 @@ def publish(article):
     print(f"🚀 Publicando: {article['titulo']}")
     
     try:
-        tag = article['foto_keyword'].replace(" ", "")
-        ts = int(time.time())
-        img_url = f"https://loremflickr.com/800/500/{tag}/all?lock={ts}"
+        # GENERACIÓN DE IMAGEN REALISTA (MODELO FLUX)
+        # Usamos la descripción detallada que nos dio la IA + filtros de realismo
+        base_prompt = article['foto_prompt']
+        # Añadimos "magic words" para forzar realismo
+        full_prompt = f"{base_prompt}, news photography, 8k, highly detailed, realistic, press photo"
+        
+        prompt_encoded = urllib.parse.quote(full_prompt)
+        img_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=800&height=450&model=flux&nologo=true&seed={random.randint(1,999)}"
         
         html = f"""
-        <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8;">
+        <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#222;">
+            
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="{tag}"/>
-                <br/><small style="font-family:Arial; font-size:10px; color:#666;">ARCHIVO: {tag.upper()}</small>
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de la noticia"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666;">FOTOGRAFÍA DE ARCHIVO</small>
             </div>
+
             {article['contenido']}
-            <br><hr>
-            <p style="font-size:12px; color:#666;">Radar Internacional - Análisis y Cobertura</p>
+
+            <div style="margin-top:30px; border-top:1px solid #ccc; padding-top:10px;">
+                <p style="font-size:12px; color:#666; font-family:Arial;">Radar Internacional - Cobertura Global</p>
+            </div>
         </div>
         """
         
@@ -144,7 +149,7 @@ def publish(article):
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡EXITO TOTAL! Noticia Publicada.")
+        print("✅ ¡EXITO TOTAL!")
         
     except Exception as e:
         print(f"❌ Error publicando: {e}")
