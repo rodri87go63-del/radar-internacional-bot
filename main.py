@@ -10,7 +10,7 @@ import urllib.request
 import requests 
 import urllib.parse
 
-print("🚀 INICIANDO RADAR (MODELO FLASH 1.5 FORZADO)...")
+print("🚀 INICIANDO RADAR (MODO CAZADOR DE MODELOS)...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
@@ -24,10 +24,6 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     API_KEY = os.environ["GEMINI_API_KEY"]
-    
-    # URL FIJA AL MODELO GRATUITO (Nunca falla)
-    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-    
     print("✅ Credenciales OK.")
 except Exception as e:
     print(f"❌ Error Config: {e}")
@@ -45,58 +41,74 @@ def get_one_story():
             with urllib.request.urlopen(req) as response:
                 feed = feedparser.parse(response.read())
             
-            for entry in feed.entries[:6]:
-                # Buscamos noticias con algo de texto
+            for entry in feed.entries[:5]:
                 summary = entry.summary if hasattr(entry, 'summary') else entry.title
-                if len(summary) > 25:
+                if len(summary) > 20:
                     candidates.append(f"TITULAR: {entry.title}\nRESUMEN: {summary}")
         except:
             pass
             
     if not candidates:
         return None
-    # Elegimos una al azar para variar
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN (VIA HTTP DIRECTA) ---
-def write_full_article(story_data):
-    print("🧠 IA: Redactando reportaje...")
-    
-    prompt = f"""
-    Eres el Editor Jefe de 'Radar Internacional'.
-    
-    NOTICIA A CUBRIR:
-    {story_data}
-
-    INSTRUCCIONES DE REDACCIÓN:
-    1. Escribe un ARTÍCULO LARGO (Mínimo 4 párrafos bien desarrollados).
-    2. Idioma: ESPAÑOL NEUTRO.
-    3. Estilo: Serio, periodístico, informativo.
-    4. FOTO: Describe la imagen perfecta para esta noticia en INGLÉS (ej: "Donald Trump speaking at podium, photorealistic").
-
-    ESTRUCTURA DE RESPUESTA (Usa el separador ||||):
-    TITULO_PROFESIONAL||||DESCRIPCION_FOTO_INGLES||||CONTENIDO_HTML
-
-    REGLAS HTML:
-    - Párrafo 1: <b>CIUDAD (Radar) —</b> ...
-    - Usa <p> para párrafos.
-    - Usa negritas <b> para resaltar datos clave.
-    - NO uses Markdown.
-    """
+# --- 3. REDACCIÓN (EL CAZADOR DE MODELOS) ---
+def call_ai_hunter(prompt):
+    # LISTA DE TODOS LOS MODELOS POSIBLES DE GOOGLE
+    # El robot probará uno por uno hasta que funcione.
+    posibles_modelos = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-pro",
+        "gemini-1.0-pro"
+    ]
     
     payload = { "contents": [{ "parts": [{"text": prompt}] }] }
     
-    try:
-        response = requests.post(API_URL, json=payload)
+    for modelo in posibles_modelos:
+        print(f"🔫 Probando modelo: {modelo}...")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={API_KEY}"
         
-        if response.status_code != 200:
-            print(f"❌ Error Google ({response.status_code}): {response.text}")
-            return None
+        try:
+            response = requests.post(url, json=payload)
+            if response.status_code == 200:
+                print(f"✅ ¡CONECTADO CON {modelo}!")
+                return response.json() # ÉXITO, devolvemos respuesta
+            else:
+                print(f"⚠️ {modelo} falló (Error {response.status_code}).")
+        except Exception as e:
+            print(f"⚠️ Error de red con {modelo}: {e}")
             
-        result = response.json()
+    print("❌ TODOS LOS MODELOS FALLARON. Revisa tu API KEY en Google AI Studio.")
+    return None
+
+def write_full_article(story_data):
+    print("🧠 IA: Iniciando redacción...")
+    
+    prompt = f"""
+    Eres el Editor Jefe de 'Radar Internacional'.
+    NOTICIA: {story_data}
+
+    TAREA OBLIGATORIA:
+    Escribe un REPORTAJE LARGO (4 párrafos) en ESPAÑOL NEUTRO.
+    
+    FORMATO DE SALIDA (Usa el separador ||||):
+    TITULO_PROFESIONAL||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
+
+    REGLAS:
+    1. KEYWORD_FOTO: Descripción visual en inglés (ej: "Joe Biden speech, photorealistic").
+    2. HTML: Usa <p>, <b> y <blockquote>.
+    3. NO uses Markdown.
+    """
+    
+    # Llamamos al cazador
+    result = call_ai_hunter(prompt)
+    
+    if not result:
+        return None
+
+    try:
         texto = result['candidates'][0]['content']['parts'][0]['text']
-        
-        # Limpieza
         texto = texto.replace("```html", "").replace("```", "").strip()
         parts = texto.split("||||")
         
@@ -108,32 +120,32 @@ def write_full_article(story_data):
             }
         else:
             return None 
-    except Exception as e:
-        print(f"⚠️ Error IA: {e}")
+    except:
         return None
 
 # --- 4. PUBLICAR ---
 def publish(article):
     if not article:
-        print("❌ No hay artículo para publicar.")
+        print("❌ No se generó artículo.")
         sys.exit(1)
 
     print(f"🚀 Publicando: {article['titulo']}")
     
     try:
-        # FOTO ULTRA-REALISTA (Pollinations con modelo FLUX-REALISM)
-        # Esto genera una foto que parece real basada en lo que dijo la IA
+        # FOTO REALISTA (Pollinations)
         prompt_foto = urllib.parse.quote(article['foto_prompt'])
-        img_url = f"https://image.pollinations.ai/prompt/{prompt_foto}?width=800&height=450&nologo=true&model=flux-realism&seed={random.randint(0,1000)}"
+        # Añadimos un número aleatorio (seed) para que la foto siempre sea nueva
+        seed = random.randint(1, 9999)
+        img_url = f"https://image.pollinations.ai/prompt/news%20photo%20{prompt_foto}?width=800&height=450&nologo=true&model=flux&seed={seed}"
         
         html = f"""
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#222;">
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);" alt="Imagen de la noticia"/>
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de la noticia"/>
             </div>
             {article['contenido']}
             <br><hr>
-            <p style="font-size:12px; color:#666; text-align:center;">Radar Internacional © 2026 - Cobertura Global</p>
+            <p style="font-size:12px; color:#666; text-align:center;">Radar Internacional © 2026</p>
         </div>
         """
         
@@ -145,7 +157,7 @@ def publish(article):
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡EXITO TOTAL! Noticia publicada.")
+        print("✅ ¡EXITO TOTAL!")
         
     except Exception as e:
         print(f"❌ Error publicando: {e}")
