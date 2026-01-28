@@ -14,11 +14,11 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11' # Versión ideal para la nueva librería
+          python-version: '3.12'
           
       - name: Instalar Herramientas
-        # AQUÍ ESTÁ EL CAMBIO: instalamos 'google-genai'
-        run: pip install feedparser google-genai google-auth google-api-python-client
+        # Solo requests y herramientas de Google para Blogger. Nada de IA libraries.
+        run: pip install feedparser google-auth google-api-python-client requests
 
       - name: Ejecutar Robot
         env:
