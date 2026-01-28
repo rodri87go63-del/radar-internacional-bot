@@ -7,29 +7,30 @@ import random
 import time
 import sys
 import urllib.request
-import requests # Usamos esto para hablar directo con Google
+import requests # <--- ESTO REEMPLAZA A LA LIBRERÍA DE IA
 
-print("🚀 INICIANDO RADAR INTERNACIONAL (CONEXIÓN DIRECTA)...")
+print("🚀 INICIANDO RADAR (MODO SIN LIBRERÍAS)...")
 
 # --- 1. CONFIGURACIÓN ---
+# Fuentes en Español
 RSS_URLS = [
     "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",
     "https://www.bbc.com/mundo/temas/internacional/index.xml"
 ]
 
 try:
-    # 1. Configurar Blogger
+    # Configurar Blogger
     token_info = json.loads(os.environ["GOOGLE_TOKEN"])
     creds = Credentials.from_authorized_user_info(token_info)
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # 2. Configurar IA (Modo Directo)
+    # Configurar Clave API (Sin librerías raras)
     API_KEY = os.environ["GEMINI_API_KEY"]
-    # Usamos la URL directa de la API, esto evita errores de librería
+    # URL directa a los servidores de Google
     API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
-    print("✅ Credenciales OK.")
+    print("✅ Credenciales cargadas.")
 except Exception as e:
     print(f"❌ Error Config: {e}")
     sys.exit(1)
@@ -57,31 +58,29 @@ def get_one_story():
         return None
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN (PETICIÓN DIRECTA) ---
+# --- 3. REDACCIÓN (CONEXIÓN DIRECTA) ---
 def write_full_article(story_data):
-    print("🧠 IA: Redactando vía API Directa...")
+    print("🧠 IA: Redactando reportaje (Vía API Directa)...")
     
     prompt = f"""
     Eres un Periodista Senior de 'Radar Internacional'.
     
-    NOTICIA BASE:
+    NOTICIA:
     {story_data}
 
-    TU TAREA:
-    Escribe un REPORTAJE EXTENSO (Mínimo 500 palabras) en ESPAÑOL NEUTRO.
-    Expande la información explicando antecedentes, contexto y consecuencias.
+    TAREA:
+    Escribe un ARTÍCULO LARGO (4 párrafos) en ESPAÑOL NEUTRO.
     
     FORMATO DE SALIDA (Usa el separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
 
     REGLAS HTML:
-    - Usa párrafos <p> muy largos.
-    - Usa subtítulos <h3>.
-    - Usa negritas <b> para resaltar datos.
-    - NO uses Markdown.
+    - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
+    - Usa <p> para párrafos.
+    - No uses Markdown.
     """
     
-    # Preparamos el paquete para enviar a Google
+    # Preparamos el paquete JSON manual
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
@@ -89,11 +88,14 @@ def write_full_article(story_data):
     }
     
     try:
-        # Enviamos la carta directamente al servidor de Google
+        # ENVIAMOS LA CARTA A GOOGLE DIRECTAMENTE
         response = requests.post(API_URL, json=payload)
-        result = response.json()
         
-        # Leemos la respuesta
+        if response.status_code != 200:
+            print(f"❌ Error de Google: {response.text}")
+            return None
+            
+        result = response.json()
         texto = result['candidates'][0]['content']['parts'][0]['text']
         
         # Limpieza
@@ -107,19 +109,17 @@ def write_full_article(story_data):
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ Formato incorrecto de la IA.")
+            print("⚠️ Formato de IA incorrecto.")
             return None 
             
     except Exception as e:
-        print(f"⚠️ Error Conexión IA: {e}")
-        # Si quieres ver el error real, descomenta la siguiente linea:
-        # print(response.text)
+        print(f"⚠️ Error Conexión: {e}")
         return None
 
 # --- 4. PUBLICAR ---
 def publish(article):
     if not article:
-        print("❌ No hay artículo para publicar.")
+        print("❌ No hay artículo generado.")
         sys.exit(1)
 
     print(f"🚀 Publicando: {article['titulo']}")
@@ -133,9 +133,10 @@ def publish(article):
         <div style="font-family: 'Georgia', serif; font-size: 18px; line-height: 1.8;">
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
                 <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="{tag}"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666;">ARCHIVO: {tag.upper()}</small>
             </div>
             {article['contenido']}
-            <br><hr><i>Radar Internacional</i>
+            <br><hr><i>Radar Internacional - Cobertura Global</i>
         </div>
         """
         
