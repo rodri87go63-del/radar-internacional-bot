@@ -14,7 +14,7 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.14'
+          python-version: '3.12'
           
       # Solo instalamos lo necesario. "requests" es para la conexión directa.
       - name: Instalar Herramientas
