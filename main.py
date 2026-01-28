@@ -7,9 +7,9 @@ import random
 import time
 import sys
 import urllib.request
-import requests # <--- ESTA ES LA CLAVE. CONEXIÓN DIRECTA.
+import requests 
 
-print("🚀 INICIANDO RADAR (MODO DIRECTO HTTP)...")
+print("🚀 INICIANDO RADAR (MODELO GEMINI-PRO ESTÁNDAR)...")
 
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
@@ -24,10 +24,10 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # 2. Configurar URL Directa de la IA
-    # Esto evita el error 404 de las librerías
+    # 2. Configurar URL Directa (USAMOS GEMINI-PRO QUE ES EL MÁS COMPATIBLE)
     API_KEY = os.environ["GEMINI_API_KEY"]
-    URL_IA = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    # CAMBIO AQUÍ: Usamos 'gemini-pro' en lugar de flash
+    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
     
     print("✅ Credenciales OK.")
 except Exception as e:
@@ -49,17 +49,18 @@ def get_one_story():
             for entry in feed.entries[:5]:
                 summary = entry.summary if hasattr(entry, 'summary') else entry.title
                 if len(summary) > 20:
-                    candidates.append(f"TITULAR: {entry.title}\nDATOS: {summary}")
+                    candidates.append(f"TITULAR: {entry.title}\nRESUMEN: {summary}")
         except:
             pass
             
     if not candidates:
+        print("⚠️ No se encontraron noticias RSS.")
         return None
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN (PETICIÓN DIRECTA) ---
+# --- 3. REDACCIÓN ---
 def write_full_article(story_data):
-    print("🧠 IA: Redactando vía Directa...")
+    print("🧠 IA: Redactando con Gemini Pro...")
     
     prompt = f"""
     Eres un Periodista Senior de 'Radar Internacional'.
@@ -68,8 +69,8 @@ def write_full_article(story_data):
     {story_data}
 
     TAREA:
-    Escribe un ARTÍCULO DE FONDO (4 párrafos largos) en ESPAÑOL NEUTRO.
-    Extiende la información explicando contexto y consecuencias.
+    Escribe un ARTÍCULO LARGO (4 párrafos) en ESPAÑOL NEUTRO.
+    Extiende la información explicando el contexto.
     
     FORMATO DE SALIDA (Usa el separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
@@ -80,23 +81,16 @@ def write_full_article(story_data):
     - No uses Markdown.
     """
     
-    # Preparamos el paquete JSON manualmente
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
+    payload = { "contents": [{ "parts": [{"text": prompt}] }] }
     
     try:
-        # ENVIAMOS LA CARTA A GOOGLE
-        response = requests.post(URL_IA, json=payload)
+        response = requests.post(API_URL, json=payload)
         
         if response.status_code != 200:
             print(f"❌ Error Google: {response.text}")
             return None
             
         result = response.json()
-        # Extraemos el texto de la respuesta compleja de Google
         texto = result['candidates'][0]['content']['parts'][0]['text']
         
         # Limpieza
@@ -110,11 +104,11 @@ def write_full_article(story_data):
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ Formato incorrecto.")
+            print("⚠️ Formato incorrecto recibido de la IA.")
             return None 
             
     except Exception as e:
-        print(f"⚠️ Error Conexión: {e}")
+        print(f"⚠️ Error IA: {e}")
         return None
 
 # --- 4. PUBLICAR ---
@@ -161,5 +155,6 @@ if __name__ == "__main__":
         art = write_full_article(story)
         publish(art)
     else:
-        print("❌ Error RSS")
+        # Fallback de emergencia si no hay RSS
+        print("⚠️ Usando noticia de emergencia.")
         sys.exit(1)
