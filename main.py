@@ -1,4 +1,5 @@
 import feedparser
+from google import genai # <--- ESTA ES LA NUEVA LIBRERÍA
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 import os
@@ -7,32 +8,29 @@ import random
 import time
 import sys
 import urllib.request
-import requests # <--- ESTO REEMPLAZA A LA LIBRERÍA DE IA
 
-print("🚀 INICIANDO RADAR (MODO SIN LIBRERÍAS)...")
+print("🚀 INICIANDO RADAR (LIBRERÍA OFICIAL GOOGLE.GENAI)...")
 
 # --- 1. CONFIGURACIÓN ---
-# Fuentes en Español
 RSS_URLS = [
     "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",
     "https://www.bbc.com/mundo/temas/internacional/index.xml"
 ]
 
 try:
-    # Configurar Blogger
+    # 1. Configurar Blogger (Esto no cambia)
     token_info = json.loads(os.environ["GOOGLE_TOKEN"])
     creds = Credentials.from_authorized_user_info(token_info)
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     
-    # Configurar Clave API (Sin librerías raras)
-    API_KEY = os.environ["GEMINI_API_KEY"]
-    # URL directa a los servidores de Google
-    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    # 2. Configurar la NUEVA IA
+    # Creamos el Cliente oficial
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     
-    print("✅ Credenciales cargadas.")
+    print("✅ Credenciales y Cliente IA cargados.")
 except Exception as e:
-    print(f"❌ Error Config: {e}")
+    print(f"❌ Error Configuración: {e}")
     sys.exit(1)
 
 # --- 2. SELECCIONAR NOTICIA ---
@@ -47,10 +45,11 @@ def get_one_story():
             with urllib.request.urlopen(req) as response:
                 feed = feedparser.parse(response.read())
             
-            for entry in feed.entries[:5]:
+            for entry in feed.entries[:6]:
+                # Buscamos noticias con algo de contenido
                 summary = entry.summary if hasattr(entry, 'summary') else entry.title
                 if len(summary) > 20:
-                    candidates.append(f"TITULAR: {entry.title}\nRESUMEN: {summary}")
+                    candidates.append(f"TITULAR: {entry.title}\nDATOS: {summary}")
         except:
             pass
             
@@ -58,9 +57,9 @@ def get_one_story():
         return None
     return random.choice(candidates)
 
-# --- 3. REDACCIÓN (CONEXIÓN DIRECTA) ---
+# --- 3. REDACCIÓN (SINTAXIS NUEVA) ---
 def write_full_article(story_data):
-    print("🧠 IA: Redactando reportaje (Vía API Directa)...")
+    print("🧠 IA: Redactando reportaje...")
     
     prompt = f"""
     Eres un Periodista Senior de 'Radar Internacional'.
@@ -69,38 +68,32 @@ def write_full_article(story_data):
     {story_data}
 
     TAREA:
-    Escribe un ARTÍCULO LARGO (4 párrafos) en ESPAÑOL NEUTRO.
+    Escribe un ARTÍCULO DE FONDO (4 párrafos) en ESPAÑOL NEUTRO.
+    Extiende la información explicando el contexto y las consecuencias.
+    
+    REQUISITOS:
+    1. Título profesional (sin números).
+    2. 4 Párrafos bien estructurados.
+    3. Una palabra clave en inglés para la foto.
     
     FORMATO DE SALIDA (Usa el separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
 
     REGLAS HTML:
     - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
-    - Usa <p> para párrafos.
+    - Usa <p>, <b> y <blockquote>.
     - No uses Markdown.
     """
     
-    # Preparamos el paquete JSON manual
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
-    
     try:
-        # ENVIAMOS LA CARTA A GOOGLE DIRECTAMENTE
-        response = requests.post(API_URL, json=payload)
+        # ASÍ SE LLAMA A LA IA CON LA LIBRERÍA NUEVA:
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         
-        if response.status_code != 200:
-            print(f"❌ Error de Google: {response.text}")
-            return None
-            
-        result = response.json()
-        texto = result['candidates'][0]['content']['parts'][0]['text']
-        
-        # Limpieza
-        texto = texto.replace("```html", "").replace("```", "").strip()
-        parts = texto.split("||||")
+        text = response.text.replace("```html", "").replace("```", "").strip()
+        parts = text.split("||||")
         
         if len(parts) >= 3:
             return {
@@ -109,17 +102,16 @@ def write_full_article(story_data):
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ Formato de IA incorrecto.")
             return None 
             
     except Exception as e:
-        print(f"⚠️ Error Conexión: {e}")
+        print(f"⚠️ Error IA: {e}")
         return None
 
 # --- 4. PUBLICAR ---
 def publish(article):
     if not article:
-        print("❌ No hay artículo generado.")
+        print("❌ Error: No se generó el artículo.")
         sys.exit(1)
 
     print(f"🚀 Publicando: {article['titulo']}")
@@ -136,7 +128,7 @@ def publish(article):
                 <br/><small style="font-family:Arial; font-size:10px; color:#666;">ARCHIVO: {tag.upper()}</small>
             </div>
             {article['contenido']}
-            <br><hr><i>Radar Internacional - Cobertura Global</i>
+            <br><hr><i>Radar Internacional - Análisis Global</i>
         </div>
         """
         
