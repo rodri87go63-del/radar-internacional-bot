@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: '3.12'
           
-      # Solo instalamos lo necesario. "requests" es para la conexión directa.
+      # INSTALAMOS SOLO LO NECESARIO (Sin la librería de IA que falla)
       - name: Instalar Herramientas
         run: pip install feedparser google-auth google-api-python-client requests
 
