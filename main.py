@@ -8,6 +8,7 @@ import time
 import sys
 import urllib.parse
 import requests 
+import urllib.parse
 
 print("🚀 INICIANDO RADAR (GEMINI DIRECTO + FOTO IA)...")
 
@@ -57,78 +58,84 @@ def get_one_story():
 def write_full_article(story_data):
     print("🧠 IA: Redactando reportaje...")
     
-    # ---------------------------------------------------------
-    # ZONA DE INSTRUCCIONES (PROMPT) - ¡AQUÍ EDITAS TÚ!
-    # ---------------------------------------------------------
     prompt = f"""
-    Eres un Periodista de Investigación de 'Radar Internacional'.
-    
-    LA NOTICIA ES:
-    {story_data}
+    Eres Periodista de 'Radar Internacional'.
+    NOTICIA: {story_data}
 
-    TU MISIÓN:
-    Escribe un ARTÍCULO DE FONDO (Mínimo 4 párrafos largos) en ESPAÑOL NEUTRO.
-    No hagas un resumen simple. Agrega contexto, antecedentes y análisis.
-
-    REGLAS DE FORMATO:
-    1. **Título:** Periodístico y serio.
-    2. **Imagen:** Dame un PROMPT EN INGLÉS para generar una foto realista (ej: "President giving speech, photorealistic").
-    3. **Texto:** Usa negritas (<b>) para resaltar lo importante.
+    TAREA:
+    Escribe un ARTÍCULO DE FONDO (4 párrafos largos) en ESPAÑOL NEUTRO.
     
-    ESTRUCTURA DE RESPUESTA (Usa el separador ||||):
-    TITULO||||PROMPT_FOTO_INGLES||||CONTENIDO_HTML_COMPLETO
+    IMPORTANTE PARA LA FOTO:
+    Dame 1 sola palabra clave en INGLÉS muy especifica de la noticia a tratar para buscar una foto real en un banco de imágenes.
+   
+    FORMATO DE SALIDA (Usa separador ||||):
+    TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
+
+    REGLAS HTML:
+    - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
+    - Usa <p> y <b>. No Markdown.
     """
-    # ---------------------------------------------------------
     
     payload = { "contents": [{ "parts": [{"text": prompt}] }] }
     
     try:
         response = requests.post(API_URL, json=payload)
-        
-        if response.status_code != 200:
-            print(f"❌ Error Google: {response.text}")
-            return None
-            
         result = response.json()
         texto = result['candidates'][0]['content']['parts'][0]['text']
         
-        # Limpieza
         texto = texto.replace("```html", "").replace("```", "").strip()
         parts = texto.split("||||")
         
         if len(parts) >= 3:
             return {
                 "titulo": parts[0].strip(),
-                "foto_prompt": parts[1].strip(),
+                "foto_keyword": parts[1].strip(),
                 "contenido": parts[2].strip()
             }
         else:
-            print("⚠️ La IA no respetó el separador ||||")
             return None 
-            
     except Exception as e:
         print(f"⚠️ Error IA: {e}")
         return None
+        
+# --- 4. BUSCAR FOTO REAL EN PEXELS ---
+def get_pexels_image(keyword):
+    print(f"📸 Buscando foto real de: {keyword}...")
+    try:
+        url = f"https://api.pexels.com/v1/search?query={keyword}&per_page=1&orientation=landscape"
+        headers = {'Authorization': PEXELS_KEY}
+        
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        
+        if data['photos']:
+            # Devolvemos la foto en tamaño grande (landscape)
+            return data['photos'][0]['src']['landscape']
+        else:
+            # Si no encuentra, foto genérica de noticias
+            return "https://images.pexels.com/photos/3944454/pexels-photo-3944454.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+    except Exception as e:
+        print(f"⚠️ Error Pexels: {e}")
+        return "https://images.pexels.com/photos/3944454/pexels-photo-3944454.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+
 
 # --- 4. PUBLICAR ---
 def publish(article):
     if not article:
-        print("❌ No hay artículo.")
+        print("❌ Error en generación.")
         sys.exit(1)
 
     print(f"🚀 Publicando: {article['titulo']}")
     
     try:
-        # Generar foto con Pollinations usando la descripción de Gemini
-        foto_desc = urllib.parse.quote(article['foto_prompt'])
-        seed = random.randint(1, 9999)
-        # Usamos modelo FLUX para máximo realismo
-        img_url = f"https://image.pollinations.ai/prompt/{foto_desc}?width=800&height=450&model=flux&nologo=true&seed={seed}"
+        # Obtenemos la foto real
+        img_url = get_pexels_image(article['foto_keyword'])
         
         html = f"""
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de la noticia"/>
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de actualidad"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666;">FOTO: AGENCIA (Pexels)</small>
             </div>
             {article['contenido']}
             <br><hr>
@@ -149,6 +156,7 @@ def publish(article):
     except Exception as e:
         print(f"❌ Error publicando: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     story = get_one_story()
