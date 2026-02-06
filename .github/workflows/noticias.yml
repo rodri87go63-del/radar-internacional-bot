@@ -18,7 +18,7 @@ jobs:
           
       - name: Instalar Herramientas
         # Solo requests y herramientas de Google para Blogger. Nada de IA libraries.
-        run: pip install feedparser google-auth google-api-python-client requests
+        run: pip install -r requirements.txt
 
       - name: Ejecutar Robot
         env:
