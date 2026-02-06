@@ -24,7 +24,7 @@ try:
     BLOG_ID = os.environ["BLOG_ID"]
     API_KEY = os.environ["GEMINI_API_KEY"]
     # URL directa a Gemini 1.5 Flash
-    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={API_KEY}"
     print("✅ Credenciales OK.")
 except Exception as e:
     print(f"❌ Error Config: {e}")
