@@ -62,21 +62,14 @@ def write_full_article(story_data):
     Eres Periodista de 'Radar Internacional'.
     NOTICIA: {story_data}
 
-    AREAS:
-    1. Escribe un ARTÍCULO DE FONDO (4 párrafos) en ESPAÑOL NEUTRO.
-    2. Elige UNA PALABRA CLAVE EN INGLÉS para buscar una foto de stock en Pexels.
-    
-    REGLAS ESTRICTAS PARA LA PALABRA CLAVE DE LA FOTO (KEYWORD):
-    - DEBE ser en INGLÉS.
-    - DEBE ser un objeto, lugar o situación genérica.
-    - PROHIBIDO usar nombres propios de personas (No uses "Maduro", "Biden", "Petro").
-    - PROHIBIDO usar fechas o nombres de eventos específicos.
-    
-    EJEMPLOS DE CONVERSIÓN PARA LA FOTO:
-    - Si la noticia es sobre "Elon Musk comprando acciones" -> Keyword: "Technology" o "Stock Market"
-    - Si la noticia es sobre "Guerra en Ucrania" -> Keyword: "War" o "Ruins"
-    - Si la noticia es sobre "Elecciones en Venezuela" -> Keyword: "Voting" o "Venezuela"
-    - Si la noticia es sobre "Cambio Climático" -> Keyword: "Drought" o "Flood"
+   TU MISIÓN:
+    Escribe un ARTÍCULO DE FONDO (Mínimo 4 párrafos largos) en ESPAÑOL NEUTRO.
+    No hagas un resumen simple. Agrega contexto, antecedentes y análisis.
+
+    REGLAS DE FORMATO:
+    1. **Título:** Periodístico y serio.
+    2. **Imagen:** Dame un PROMPT EN INGLÉS para generar una foto realista (ej: "President giving speech, photorealistic").
+    3. **Texto:** Usa negritas (<b>) para resaltar lo importante.
    
     FORMATO DE SALIDA (Usa separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
