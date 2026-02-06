@@ -62,11 +62,21 @@ def write_full_article(story_data):
     Eres Periodista de 'Radar Internacional'.
     NOTICIA: {story_data}
 
-    TAREA:
-    Escribe un ARTÍCULO DE FONDO (4 párrafos largos) en ESPAÑOL NEUTRO.
+    AREAS:
+    1. Escribe un ARTÍCULO DE FONDO (4 párrafos) en ESPAÑOL NEUTRO.
+    2. Elige UNA PALABRA CLAVE EN INGLÉS para buscar una foto de stock en Pexels.
     
-    IMPORTANTE PARA LA FOTO:
-    Dame 1 sola palabra clave en INGLÉS muy especifica de la noticia a tratar para buscar una foto real en un banco de imágenes.
+    REGLAS ESTRICTAS PARA LA PALABRA CLAVE DE LA FOTO (KEYWORD):
+    - DEBE ser en INGLÉS.
+    - DEBE ser un objeto, lugar o situación genérica.
+    - PROHIBIDO usar nombres propios de personas (No uses "Maduro", "Biden", "Petro").
+    - PROHIBIDO usar fechas o nombres de eventos específicos.
+    
+    EJEMPLOS DE CONVERSIÓN PARA LA FOTO:
+    - Si la noticia es sobre "Elon Musk comprando acciones" -> Keyword: "Technology" o "Stock Market"
+    - Si la noticia es sobre "Guerra en Ucrania" -> Keyword: "War" o "Ruins"
+    - Si la noticia es sobre "Elecciones en Venezuela" -> Keyword: "Voting" o "Venezuela"
+    - Si la noticia es sobre "Cambio Climático" -> Keyword: "Drought" o "Flood"
    
     FORMATO DE SALIDA (Usa separador ||||):
     TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
