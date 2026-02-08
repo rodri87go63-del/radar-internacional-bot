@@ -68,11 +68,18 @@ def write_full_article(story_data):
 
     REGLAS DE FORMATO:
     1. **Título:** Periodístico y serio.
-    2. **Imagen:** Dame un PROMPT EN INGLÉS para generar una foto realista (ej: "President giving speech, photorealistic").
+    2. **Imagen:** Crea un PROMPT VISUAL en INGLÉS para generar una foto realista.
+    
+    REGLAS PARA EL PROMPT DE LA FOTO:
+    - Debe ser en INGLÉS.
+    - Describe la ESCENA, no el concepto. (Mal: "Economy". Bien: "A busy stock market graph on a monitor, blurred office background").
+    - NO uses nombres de personas famosas (la IA las deforma). Usa descripciones (ej: "A senior politician in a suit giving a speech").
+    - Añade al final: ", photorealistic, 8k, news photography style".
+
     3. **Texto:** Usa negritas (<b>) para resaltar lo importante.
    
     FORMATO DE SALIDA (Usa separador ||||):
-    TITULO||||KEYWORD_FOTO_INGLES||||CONTENIDO_HTML
+    TITULO||||PROMPT_VISUAL_INGLES||||CONTENIDO_HTML
 
     REGLAS HTML:
     - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
@@ -92,7 +99,7 @@ def write_full_article(story_data):
         if len(parts) >= 3:
             return {
                 "titulo": parts[0].strip(),
-                "foto_keyword": parts[1].strip(),
+                "foto_prompt": parts[1].strip(),
                 "contenido": parts[2].strip()
             }
         else:
@@ -101,48 +108,34 @@ def write_full_article(story_data):
         print(f"⚠️ Error IA: {e}")
         return None
         
-# --- 4. BUSCAR FOTO REAL EN PEXELS ---
-def get_pexels_image(keyword):
-    print(f"📸 Buscando foto real de: {keyword}...")
-    try:
-        url = f"https://api.pexels.com/v1/search?query={keyword}&per_page=1&orientation=landscape"
-        headers = {'Authorization': PEXELS_KEY}
-        
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        
-        if data['photos']:
-            # Devolvemos la foto en tamaño grande (landscape)
-            return data['photos'][0]['src']['landscape']
-        else:
-            # Si no encuentra, foto genérica de noticias
-            return "https://images.pexels.com/photos/3944454/pexels-photo-3944454.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-    except Exception as e:
-        print(f"⚠️ Error Pexels: {e}")
-        return "https://images.pexels.com/photos/3944454/pexels-photo-3944454.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-
-
-# --- 4. PUBLICAR ---
+# --- 4. PUBLICAR CON FOTO IA GENERADA ---
 def publish(article):
     if not article:
-        print("❌ Error en generación.")
+        print("❌ No hay artículo.")
         sys.exit(1)
 
-    print(f"🚀 Publicando: {article['titulo']}")
+    print(f"🚀 Generando Imagen y Publicando: {article['titulo']}")
     
     try:
-        # Obtenemos la foto real
-        img_url = get_pexels_image(article['foto_keyword'])
+        # GENERACIÓN DE IMAGEN CON POLLINATIONS (MODELO FLUX)
+        # Codificamos el prompt que nos dio Gemini para que sea una URL válida
+        prompt_imagen = urllib.parse.quote(article['foto_prompt'])
+        
+        # Añadimos una semilla aleatoria para que la foto siempre sea distinta
+        seed = random.randint(1, 99999)
+        
+        # URL Mágica: Usa el modelo 'flux' que es ultra realista
+        img_url = f"https://image.pollinations.ai/prompt/{prompt_imagen}?width=1280&height=720&model=flux&nologo=true&seed={seed}"
         
         html = f"""
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
-                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen de actualidad"/>
-                <br/><small style="font-family:Arial; font-size:10px; color:#666;">FOTO: AGENCIA (Pexels)</small>
+                <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen generada por IA"/>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666;">IMAGEN GENERADA POR IA (FLUX)</small>
             </div>
             {article['contenido']}
             <br><hr>
-            <p style="font-size:12px; color:#666;">Radar Internacional © 2026</p>
+            <p style="font-size:12px; color:#666; text-align:center;">Radar Internacional © 2026</p>
         </div>
         """
         
