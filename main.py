@@ -77,13 +77,14 @@ def write_full_article(story_data):
     - Describe la ESCENA, no el concepto. (Mal: "Economy". Bien: "A busy stock market graph on a monitor, blurred office background").
     - NO uses nombres de personas famosas (la IA las deforma). Usa descripciones (ej: "A senior politician in a suit giving a speech").
     - Añade al final: ", photorealistic, 8k, news photography style".
-    3. **CLASIFICA LA NOTICIA** en una de estas categorías exactas: "Mundo", "Economia", "Tecnologia", "Politica", "Sociedad".
+    3. **CATEGORÍA:** Elige una: "Mundo", "Economia", "Tecnologia", "Politica", "Sociedad".
+    4. **UBICACIÓN:** Elige una de estas opciones EXACTAS (la que mejor encaje): "China", "EEUU", "Venezuela", "Rusia", "Europa", "África", "Asia", "América", "Oceanía".
 
-    4. **Texto:** Usa negritas (<b>) para resaltar lo importante.
+    5. **Texto:** Usa negritas (<b>) para resaltar lo importante.
 
 
     FORMATO DE SALIDA (Usa separador ||||):
-    TITULO||||PROMPT_VISUAL_INGLES||||CATEGORIA||||CONTENIDO_HTML
+    TITULO||||PROMPT_VISUAL_INGLES||||CATEGORIA||||UBICACION||||CONTENIDO_HTML
 
     REGLAS HTML:
     - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
@@ -99,13 +100,15 @@ def write_full_article(story_data):
         
         texto = texto.replace("```html", "").replace("```", "").strip()
         parts = texto.split("||||")
-        
-        if len(parts) >= 4:
+
+         # Ahora esperamos 5 partes (incluyendo la ubicación)
+        if len(parts) >= 5:
             return {
                 "titulo": parts[0].strip(),
                 "foto_prompt": parts[1].strip(),
                 "categoria": parts[2].strip(), # NUEVA VARIABLE
-                "contenido": parts[3].strip()
+                "ubicacion": parts[3].strip(),
+                "contenido": parts[4].strip()
             }
         else:
             return None 
@@ -119,7 +122,7 @@ def publish(article):
         print("❌ No hay artículo.")
         sys.exit(1)
 
-    print(f"🚀 Generando Imagen y Publicando: {article['titulo']}")
+    print(f"🚀 Generando Imagen y Publicando: {article['titulo']} - {article['ubicacion']}")
     
     try:
         # GENERACIÓN DE IMAGEN CON POLLINATIONS (MODELO FLUX)
@@ -144,7 +147,7 @@ def publish(article):
         </div>
         """
         # AQUI AGREGAMOS LA CATEGORÍA DINÁMICA
-        etiquetas = ["Portada", article['categoria']]
+        etiquetas = ["Portada", article['categoria'], article['ubicacion']]
         
         body = {
             "kind": "blogger#post",
