@@ -78,7 +78,7 @@ def write_full_article(story_data):
     - NO uses nombres de personas famosas (la IA las deforma). Usa descripciones (ej: "A senior politician in a suit giving a speech").
     - Añade al final: ", photorealistic, 8k, news photography style".
     3. **CATEGORÍA:** Elige una: "Mundo", "Economia", "Tecnologia", "Politica", "Sociedad".
-    4. **UBICACIÓN:** Elige una de estas opciones EXACTAS (la que mejor encaje): "China", "EEUU", "Venezuela", "Rusia", "Europa", "África", "Asia", "América", "Oceanía".
+    4. **UBICACIÓN:** Elige una de estas opciones EXACTAS (la que mejor encaje): "China", "EEUU", "Venezuela", "Rusia", "Europa", "África", "Asia", "América", "Oceanía", "Medio Oriente".
 
     5. **Texto:** Usa negritas (<b>) para resaltar lo importante.
 
