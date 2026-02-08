@@ -15,7 +15,9 @@ print("🚀 INICIANDO RADAR (GEMINI DIRECTO + FOTO IA)...")
 # --- 1. CONFIGURACIÓN ---
 RSS_URLS = [
     "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",
-    "https://www.bbc.com/mundo/temas/internacional/index.xml"
+    "https://www.bbc.com/mundo/temas/internacional/index.xml",
+    "https://www.bbc.com/mundo/temas/economia/index.xml",
+    "https://www.bbc.com/mundo/temas/ciencia_y_tecnologia/index.xml"
 ]
 
 try:
@@ -24,7 +26,7 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     API_KEY = os.environ["GEMINI_API_KEY"]
-    # URL directa a Gemini 1.5 Flash
+    # URL directa a Gemini 3 Flash preview
     API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={API_KEY}"
     print("✅ Credenciales OK.")
 except Exception as e:
@@ -75,11 +77,13 @@ def write_full_article(story_data):
     - Describe la ESCENA, no el concepto. (Mal: "Economy". Bien: "A busy stock market graph on a monitor, blurred office background").
     - NO uses nombres de personas famosas (la IA las deforma). Usa descripciones (ej: "A senior politician in a suit giving a speech").
     - Añade al final: ", photorealistic, 8k, news photography style".
+    3. **CLASIFICA LA NOTICIA** en una de estas categorías exactas: "Mundo", "Economia", "Tecnologia", "Politica", "Sociedad".
 
-    3. **Texto:** Usa negritas (<b>) para resaltar lo importante.
-   
+    4. **Texto:** Usa negritas (<b>) para resaltar lo importante.
+
+
     FORMATO DE SALIDA (Usa separador ||||):
-    TITULO||||PROMPT_VISUAL_INGLES||||CONTENIDO_HTML
+    TITULO||||PROMPT_VISUAL_INGLES||||CATEGORIA||||CONTENIDO_HTML
 
     REGLAS HTML:
     - Primer párrafo: <b>CIUDAD (Radar) —</b> ...
@@ -96,11 +100,12 @@ def write_full_article(story_data):
         texto = texto.replace("```html", "").replace("```", "").strip()
         parts = texto.split("||||")
         
-        if len(parts) >= 3:
+        if len(parts) >= 4:
             return {
                 "titulo": parts[0].strip(),
                 "foto_prompt": parts[1].strip(),
-                "contenido": parts[2].strip()
+                "categoria": parts[2].strip(), # NUEVA VARIABLE
+                "contenido": parts[3].strip()
             }
         else:
             return None 
@@ -131,19 +136,21 @@ def publish(article):
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
             <div class="separator" style="clear: both; text-align: center; margin-bottom: 25px;">
                 <img border="0" src="{img_url}" style="width:100%; max-width:800px; border-radius:5px;" alt="Imagen generada por IA"/>
-                <br/><small style="font-family:Arial; font-size:10px; color:#666;">IMAGEN GENERADA POR IA (FLUX)</small>
+                <br/><small style="font-family:Arial; font-size:10px; color:#666;">IMAGEN DE LA NOTICIA</small>
             </div>
             {article['contenido']}
             <br><hr>
             <p style="font-size:12px; color:#666; text-align:center;">Radar Internacional © 2026</p>
         </div>
         """
+        # AQUI AGREGAMOS LA CATEGORÍA DINÁMICA
+        etiquetas = ["Portada", article['categoria']]
         
         body = {
             "kind": "blogger#post",
             "title": article["titulo"],
             "content": html,
-            "labels": ["Internacional", "Noticias"]
+            "labels": etiqueta
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
