@@ -150,7 +150,7 @@ def publish(article):
             "kind": "blogger#post",
             "title": article["titulo"],
             "content": html,
-            "labels": etiqueta
+            "labels": etiquetas
         }
         
         service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
