@@ -142,25 +142,29 @@ def write_full_article(story_data):
         return None
 
 
-# --- 4. FUNCIÓN TELEGRAM ---
-def send_telegram(title, link, img_url, category):
-    print("📲 Enviando a Telegram...")
+# --- 4. TELEGRAM (ENVIAR ARCHIVO DIRECTO) ---
+def send_telegram_file(title, link, image_bytes, category):
+    print("📲 Subiendo foto a Telegram...")
     try:
-        # Mensaje bonito con emojis
         caption = f"🚨 <b>{title}</b>\n\n" \
                   f"🌍 <i>Categoría: {category}</i>\n\n" \
                   f"👇 <b>Leer noticia completa:</b>\n{link}\n\n" \
                   f"📡 <i>Radar Internacional</i>"
         
         url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
-        payload = {
-            "chat_id": TG_CHAT_ID,
-            "photo": img_url,
-            "caption": caption,
-            "parse_mode": "HTML"
+        
+        # Enviamos el archivo binario (multipart/form-data)
+        files = {
+            'photo': ('noticia.jpg', image_bytes, 'image/jpeg')
         }
-        requests.post(url, json=payload)
-        print("✅ Telegram enviado.")
+        data = {
+            'chat_id': TG_CHAT_ID,
+            'caption': caption,
+            'parse_mode': 'HTML'
+        }
+        
+        requests.post(url, data=data, files=files)
+        print("✅ Telegram enviado con éxito.")
     except Exception as e:
         print(f"⚠️ Error Telegram: {e}")
 
@@ -186,16 +190,17 @@ def publish(article):
         img_url = f"https://image.pollinations.ai/prompt/{prompt_imagen}?width=800&height=450&nologo=true&seed={seed}"
 
          
-        # 2. PRE-CARGA DE IMAGEN (EL TRUCO)
-        print("⏳ Generando imagen en el servidor (Espere 10s)...")
-        try:
-            # El robot descarga la imagen para obligar al servidor a crearla
-            requests.get(img_url, timeout=20)
-            # Esperamos 5 segundos extra para asegurar que se guardó
-            time.sleep(5)
-            print("✅ Imagen lista y cacheada.")
-        except:
-            print("⚠️ Alerta: La pre-carga tardó, pero continuamos.")
+        # 2. DESCARGAR LA IMAGEN (ESTO ES LO NUEVO)
+        print("⬇️ Descargando imagen al servidor...")
+        img_response = requests.get(img_url, timeout=30)
+        
+        if img_response.status_code == 200:
+            image_bytes = img_response.content
+            print("✅ Imagen descargada correctamente.")
+        else:
+            print("⚠️ Falló descarga de imagen, se usará URL.")
+            image_bytes = None
+
         
         html = f"""
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
@@ -223,8 +228,12 @@ def publish(article):
         blog_link = response.get('url') # Obtenemos el link de la noticia nueva
         print(f"✅ Blog OK: {blog_link}")
         
-        # 2. Publicar en Telegram
-        send_telegram(article['titulo'], blog_link, img_url, article['categoria'])
+        # 4. PUBLICAR EN TELEGRAM (Enviando el archivo descargado)
+        if image_bytes:
+            send_telegram_file(article['titulo'], blog_link, image_bytes, article['categoria'])
+        else:
+            # Si falló la descarga, enviamos solo texto para no romper nada
+            print("⚠️ Enviando solo texto a Telegram por fallo de imagen.")
         
     except Exception as e:
         print(f"❌ Error publicando: {e}")
