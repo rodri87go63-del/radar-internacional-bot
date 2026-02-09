@@ -182,8 +182,20 @@ def publish(article):
         # Añadimos una semilla aleatoria para que la foto siempre sea distinta
         seed = random.randint(1, 99999)
         
-        # URL Mágica: Usa el modelo 'flux' que es ultra realista
-        img_url = f"https://image.pollinations.ai/prompt/{prompt_imagen}?width=1280&height=720&model=flux&nologo=true&seed={seed}"
+        # Usamos el modelo por defecto que es más estable y rápido.
+        img_url = f"https://image.pollinations.ai/prompt/{prompt_imagen}?width=800&height=450&nologo=true&seed={seed}"
+
+         
+        # 2. PRE-CARGA DE IMAGEN (EL TRUCO)
+        print("⏳ Generando imagen en el servidor (Espere 10s)...")
+        try:
+            # El robot descarga la imagen para obligar al servidor a crearla
+            requests.get(img_url, timeout=20)
+            # Esperamos 5 segundos extra para asegurar que se guardó
+            time.sleep(5)
+            print("✅ Imagen lista y cacheada.")
+        except:
+            print("⚠️ Alerta: La pre-carga tardó, pero continuamos.")
         
         html = f"""
         <div style="font-family: 'Georgia', serif; font-size: 19px; line-height: 1.8; color:#111;">
