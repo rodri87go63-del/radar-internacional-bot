@@ -26,6 +26,11 @@ try:
     service = build('blogger', 'v3', credentials=creds)
     BLOG_ID = os.environ["BLOG_ID"]
     API_KEY = os.environ["GEMINI_API_KEY"]
+
+    # Credenciales Telegram
+    TG_TOKEN = os.environ["TELEGRAM_TOKEN"]
+    TG_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+    
     # URL directa a Gemini 3 Flash preview
     API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={API_KEY}"
     print("✅ Credenciales OK.")
@@ -115,6 +120,31 @@ def write_full_article(story_data):
     except Exception as e:
         print(f"⚠️ Error IA: {e}")
         return None
+
+
+# --- 4. FUNCIÓN TELEGRAM ---
+def send_telegram(title, link, img_url, category):
+    print("📲 Enviando a Telegram...")
+    try:
+        # Mensaje bonito con emojis
+        caption = f"🚨 <b>{title}</b>\n\n" \
+                  f"🌍 <i>Categoría: {category}</i>\n\n" \
+                  f"👇 <b>Leer noticia completa:</b>\n{link}\n\n" \
+                  f"📡 <i>Radar Internacional</i>"
+        
+        url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
+        payload = {
+            "chat_id": TG_CHAT_ID,
+            "photo": img_url,
+            "caption": caption,
+            "parse_mode": "HTML"
+        }
+        requests.post(url, json=payload)
+        print("✅ Telegram enviado.")
+    except Exception as e:
+        print(f"⚠️ Error Telegram: {e}")
+
+
         
 # --- 4. PUBLICAR CON FOTO IA GENERADA ---
 def publish(article):
@@ -156,8 +186,13 @@ def publish(article):
             "labels": etiquetas
         }
         
-        service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
-        print("✅ ¡EXITO TOTAL!")
+        # 1. Publicar en Blogger
+        response = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False).execute()
+        blog_link = response.get('url') # Obtenemos el link de la noticia nueva
+        print(f"✅ Blog OK: {blog_link}")
+        
+        # 2. Publicar en Telegram
+        send_telegram(article['titulo'], blog_link, img_url, article['categoria'])
         
     except Exception as e:
         print(f"❌ Error publicando: {e}")
