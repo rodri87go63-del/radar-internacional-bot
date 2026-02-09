@@ -96,7 +96,16 @@ def write_full_article(story_data):
     - Usa <p> y <b>. No Markdown.
     """
     
-    payload = { "contents": [{ "parts": [{"text": prompt}] }] }
+    # CONFIGURACIÓN ANTI-CENSURA (IMPORTANTE)
+    payload = {
+        "contents": [{ "parts": [{"text": prompt}] }],
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+    }
     
     try:
         response = requests.post(API_URL, json=payload)
@@ -106,6 +115,17 @@ def write_full_article(story_data):
         texto = texto.replace("```html", "").replace("```", "").strip()
         parts = texto.split("||||")
 
+        # VERIFICACIÓN DE ERROR (Para que no se rompa si falla)
+        if 'candidates' not in result:
+            print(f"⚠️ Google bloqueó la respuesta. Razón: {result.get('promptFeedback', 'Desconocida')}")
+            return None
+
+        texto = result['candidates'][0]['content']['parts'][0]['text']
+        texto = texto.replace("```html", "").replace("```", "").strip()
+        parts = texto.split("||||")
+
+
+        
          # Ahora esperamos 5 partes (incluyendo la ubicación)
         if len(parts) >= 5:
             return {
