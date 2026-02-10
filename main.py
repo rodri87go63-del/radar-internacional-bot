@@ -192,7 +192,7 @@ def publish(article):
          
         # 2. DESCARGAR LA IMAGEN (ESTO ES LO NUEVO)
         print("⬇️ Descargando imagen al servidor...")
-        img_response = requests.get(img_url, timeout=30)
+        img_response = requests.get(img_url, timeout=10)
         
         if img_response.status_code == 200:
             image_bytes = img_response.content
